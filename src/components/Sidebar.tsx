@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useStore, PuzzlePayload, WordSearchData } from "../store";
-import { Settings, FileText, Grid3x3, Type } from "lucide-react";
+import { Settings, FileText, Grid3x3, Type, Printer } from "lucide-react";
 
 export function Sidebar() {
   const [title, setTitle] = useState("My Word Search");
@@ -10,6 +10,8 @@ export function Sidebar() {
   const [words, setWords] = useState("RUST\nTAURI\nREACT\nTAILWIND\nZUSTAND");
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const pageSize = useStore((state) => state.pageSize);
+  const setPageSize = useStore((state) => state.setPageSize);
   const addPuzzle = useStore((state) => state.addPuzzle);
 
   const handleGenerate = async () => {
@@ -56,6 +58,20 @@ export function Sidebar() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-semibold text-slate-400 flex items-center gap-2">
+            <Printer size={16} /> PDF Page Size
+          </label>
+          <select
+            className="bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all text-slate-100 cursor-pointer"
+            value={pageSize}
+            onChange={(e) => setPageSize(e.target.value)}
+          >
+            <option value="A4">A4 (210 x 297 mm)</option>
+            <option value="Letter">US Letter (8.5 x 11 in)</option>
+          </select>
         </div>
 
         <div className="flex gap-4">

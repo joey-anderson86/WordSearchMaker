@@ -24,12 +24,16 @@ export interface PuzzlePayload<T> {
 
 interface AppState {
     puzzles: PuzzlePayload<WordSearchData>[];
+    pageSize: string;
+    setPageSize: (pageSize: string) => void;
     addPuzzle: (puzzle: PuzzlePayload<WordSearchData>) => void;
     clearPuzzles: () => void;
 }
 
 export const useStore = create<AppState>((set) => ({
     puzzles: [],
+    pageSize: "A4",
+    setPageSize: (pageSize) => set({ pageSize }),
     addPuzzle: (puzzle) => set((state) => ({ puzzles: [...state.puzzles, puzzle] })),
     clearPuzzles: () => set({ puzzles: [] }),
 }));
