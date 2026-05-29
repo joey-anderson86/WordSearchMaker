@@ -12,8 +12,14 @@ import {
   ArrowUp, 
   ArrowDown, 
   Sparkles, 
-  BookOpen 
+  BookOpen,
+  Upload,
+  Download,
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
+import { importBookFromJson, ImportValidationError } from "../utils/importJson";
+import { downloadTemplate } from "../utils/templateGenerator";
 
 const defaultThemes = [
   { name: "Programming", words: "RUST\nTAURI\nREACT\nTYPESCRIPT\nZUSTAND" },
@@ -39,6 +45,7 @@ export function Sidebar() {
   const updatePuzzle = useStore((state) => state.updatePuzzle);
   const deletePuzzle = useStore((state) => state.deletePuzzle);
   const reorderPuzzles = useStore((state) => state.reorderPuzzles);
+  const clearPuzzles = useStore((state) => state.clearPuzzles);
 
   const [selectedTypeToCreate, setSelectedTypeToCreate] = useState<PuzzlePayloadType>("WordSearch");
   const [editTitle, setEditTitle] = useState("");
@@ -46,6 +53,9 @@ export function Sidebar() {
   const [editHeight, setEditHeight] = useState(15);
   const [editWords, setEditWords] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
 
   // States for adding new custom crossword clues
   const [newCwWord, setNewCwWord] = useState("");
@@ -300,6 +310,84 @@ export function Sidebar() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const saved = await downloadTemplate();
+      if (saved) {
+        setImportError(null); // Clear any previous errors
+      }
+    } catch (err) {
+      console.error("Failed to save template:", err);
+      setImportError(
+        `Failed to save template: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  };
+
+  const handleImportJson = async () => {
+    setImportError(null);
+    setIsImporting(true);
+    setImportProgress("Opening file picker...");
+
+    try {
+      const bookData = await importBookFromJson();
+
+      // User cancelled the dialog
+      if (!bookData) {
+        setIsImporting(false);
+        setImportProgress("");
+        return;
+      }
+
+      // Clear existing puzzles
+      clearPuzzles();
+
+      // Update book title if provided
+      if (bookData.bookTitle) {
+        setBookTitle(bookData.bookTitle);
+      }
+
+      // Batch-generate each page
+      const totalPages = bookData.pages.length;
+      for (let i = 0; i < totalPages; i++) {
+        const page = bookData.pages[i];
+        setImportProgress(`Generating page ${i + 1} of ${totalPages}: ${page.title}...`);
+
+        try {
+          const result: PuzzlePayload<WordSearchData> = await invoke("generate_puzzle", {
+            width: page.gridWidth,
+            height: page.gridHeight,
+            words: page.words,
+          });
+
+          result.title = page.title;
+          addPuzzle(result);
+        } catch (pageErr) {
+          console.error(`Failed to generate page ${i + 1}: ${page.title}`, pageErr);
+          // Continue with remaining pages
+          setImportError(
+            `Warning: Page "${page.title}" failed to generate. ${
+              pageErr instanceof Error ? pageErr.message : String(pageErr)
+            }`
+          );
+        }
+      }
+
+      setImportProgress("");
+    } catch (err) {
+      console.error("Import failed:", err);
+      if (err instanceof ImportValidationError) {
+        setImportError(err.message);
+      } else {
+        setImportError(
+          `Import failed: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div className="w-80 bg-slate-900 text-slate-100 flex flex-col h-screen overflow-hidden shadow-xl z-10 border-r border-slate-800">
       {/* Book Configuration Section */}
@@ -348,6 +436,59 @@ export function Sidebar() {
               Include Solutions Section at End
             </label>
           </div>
+
+          {/* Import from JSON Button */}
+          <button
+            onClick={handleImportJson}
+            disabled={isImporting || isGenerating}
+            className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-emerald-600/25 to-teal-600/25 hover:from-emerald-600/40 hover:to-teal-600/40 disabled:from-slate-800 disabled:to-slate-800 text-emerald-400 hover:text-emerald-300 disabled:text-slate-500 border border-emerald-500/30 disabled:border-slate-700 text-xs font-bold py-2.5 px-3 rounded-lg transition-all duration-200 active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed mt-1 shadow-sm"
+          >
+            {isImporting ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <Upload size={14} />
+                Import Book from JSON
+              </>
+            )}
+          </button>
+
+          {/* Download LLM Template Button */}
+          <button
+            onClick={handleDownloadTemplate}
+            disabled={isImporting}
+            className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-sky-600/20 to-indigo-600/20 hover:from-sky-600/35 hover:to-indigo-600/35 disabled:from-slate-800 disabled:to-slate-800 text-sky-400 hover:text-sky-300 disabled:text-slate-500 border border-sky-500/25 disabled:border-slate-700 text-xs font-bold py-2.5 px-3 rounded-lg transition-all duration-200 active:scale-[0.98] cursor-pointer disabled:cursor-not-allowed shadow-sm"
+          >
+            <Download size={14} />
+            Download LLM Template
+          </button>
+
+          {/* Import Progress */}
+          {isImporting && importProgress && (
+            <div className="flex items-center gap-2 p-2 bg-emerald-950/40 border border-emerald-800/40 rounded-lg text-[10px] text-emerald-300 animate-pulse">
+              <Loader2 size={10} className="animate-spin flex-shrink-0" />
+              <span className="truncate">{importProgress}</span>
+            </div>
+          )}
+
+          {/* Import Error */}
+          {importError && !isImporting && (
+            <div className="flex items-start gap-2 p-2.5 bg-rose-950/40 border border-rose-800/40 rounded-lg text-[10px] text-rose-300 leading-relaxed">
+              <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+              <div className="flex flex-col gap-1 overflow-hidden">
+                <span className="break-words">{importError}</span>
+                <button
+                  onClick={() => setImportError(null)}
+                  className="self-end text-[9px] text-rose-400 hover:text-rose-300 underline cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

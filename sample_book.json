@@ -1,0 +1,23 @@
+{
+  "bookTitle": "My Custom Word Search Book",
+  "pages": [
+    {
+      "title": "Animals",
+      "gridWidth": 15,
+      "gridHeight": 15,
+      "words": ["LION", "TIGER", "BEAR", "ELEPHANT", "GIRAFFE", "MONKEY", "ZEBRA", "DOLPHIN"]
+    },
+    {
+      "title": "Space Exploration",
+      "gridWidth": 18,
+      "gridHeight": 18,
+      "words": ["PLANET", "GALAXY", "ASTEROID", "COMET", "NEBULA", "STAR", "METEOR", "ORBIT", "QUASAR"]
+    },
+    {
+      "title": "Programming Languages",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "words": ["RUST", "PYTHON", "JAVASCRIPT", "TYPESCRIPT", "GOLANG", "KOTLIN", "SWIFT", "RUBY", "JAVA"]
+    }
+  ]
+}
