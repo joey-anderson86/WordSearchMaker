@@ -2,11 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { useStore } from "../store";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { Download, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Download, AlertCircle, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
 
 export function Preview() {
   const puzzles = useStore((state) => state.puzzles);
+  const selectedPuzzleId = useStore((state) => state.selectedPuzzleId);
+  const setSelectedPuzzleId = useStore((state) => state.setSelectedPuzzleId);
   const pageSize = useStore((state) => state.pageSize);
+  const bookTitle = useStore((state) => state.bookTitle);
+  const includeSolutions = useStore((state) => state.includeSolutions);
+
   const [showSolutions, setShowSolutions] = useState(true);
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
 
@@ -47,9 +52,23 @@ export function Preview() {
     );
   }
 
-  const activePuzzle = puzzles[puzzles.length - 1];
+  const activePuzzle = puzzles.find((p) => p.id === selectedPuzzleId) || puzzles[puzzles.length - 1];
+  const activeIndex = puzzles.findIndex((p) => p.id === activePuzzle?.id);
 
-  const handleExportPDF = async () => {
+  const handlePrevPage = () => {
+    if (activeIndex > 0) {
+      setSelectedPuzzleId(puzzles[activeIndex - 1].id);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (activeIndex < puzzles.length - 1) {
+      setSelectedPuzzleId(puzzles[activeIndex + 1].id);
+    }
+  };
+
+  const handleExportPagePDF = async () => {
+    if (!activePuzzle) return;
     try {
       const filePath = await save({
         filters: [{
@@ -67,10 +86,38 @@ export function Preview() {
         pageSize: pageSize
       });
       
-      alert(`Successfully saved to ${filePath}`);
+      alert(`Successfully saved page to ${filePath}`);
     } catch (e) {
-      console.error("Export failed", e);
-      alert("Failed to export PDF. Check console for details.");
+      console.error("Export page failed", e);
+      alert("Failed to export PDF page. Check console for details.");
+    }
+  };
+
+  const handleExportBookPDF = async () => {
+    if (puzzles.length === 0) return;
+    try {
+      const filePath = await save({
+        filters: [{
+          name: 'PDF Document',
+          extensions: ['pdf']
+        }],
+        defaultPath: `${bookTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`
+      });
+      
+      if (!filePath) return; // User canceled
+      
+      await invoke("export_book_to_pdf", {
+        path: filePath,
+        bookTitle: bookTitle,
+        puzzles: puzzles,
+        pageSize: pageSize,
+        includeSolutions: includeSolutions
+      });
+      
+      alert(`Successfully saved book to ${filePath}`);
+    } catch (e) {
+      console.error("Export book failed", e);
+      alert("Failed to export book PDF. Check console for details.");
     }
   };
 
@@ -101,6 +148,29 @@ export function Preview() {
             {cols} x {rows} Grid
           </p>
         </div>
+
+        {/* Page Selector Toolbar */}
+        {puzzles.length > 1 && (
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm mb-0.5">
+            <button
+              onClick={handlePrevPage}
+              disabled={activeIndex === 0}
+              className="p-1 rounded hover:bg-slate-150 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer text-slate-700 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-xs font-bold text-slate-600 select-none">
+              Page {activeIndex + 1} of {puzzles.length}
+            </span>
+            <button
+              onClick={handleNextPage}
+              disabled={activeIndex === puzzles.length - 1}
+              className="p-1 rounded hover:bg-slate-150 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer text-slate-700 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        )}
         
         <div className="flex items-center gap-3">
           <button
@@ -116,10 +186,17 @@ export function Preview() {
           </button>
 
           <button
-            onClick={handleExportPDF}
+            onClick={handleExportPagePDF}
+            className="bg-white border border-slate-250 text-slate-700 hover:bg-slate-50 font-semibold py-2 px-4 rounded-lg shadow-md shadow-slate-100 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+          >
+            <Download size={18} /> Export Page
+          </button>
+
+          <button
+            onClick={handleExportBookPDF}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 rounded-lg shadow-md shadow-indigo-200 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
           >
-            <Download size={18} /> Export to PDF
+            <Download size={18} /> Export Book
           </button>
         </div>
       </div>
