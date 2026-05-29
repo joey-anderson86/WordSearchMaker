@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useStore } from "../store";
-import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Download, AlertCircle, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { pdf } from "@react-pdf/renderer";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import { PdfDocument } from "./PdfDocument";
 
 export function Preview() {
   const puzzles = useStore((state) => state.puzzles);
@@ -80,11 +82,18 @@ export function Preview() {
       
       if (!filePath) return; // User canceled
       
-      await invoke("export_to_pdf", {
-        path: filePath,
-        payload: activePuzzle,
-        pageSize: pageSize
-      });
+      const blob = await pdf(
+        <PdfDocument
+          puzzles={[activePuzzle]}
+          pageSize={pageSize}
+          includeSolutions={false}
+          isSinglePage={true}
+        />
+      ).toBlob();
+      
+      const arrayBuffer = await blob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      await writeFile(filePath, uint8Array);
       
       alert(`Successfully saved page to ${filePath}`);
     } catch (e) {
@@ -106,13 +115,18 @@ export function Preview() {
       
       if (!filePath) return; // User canceled
       
-      await invoke("export_book_to_pdf", {
-        path: filePath,
-        bookTitle: bookTitle,
-        puzzles: puzzles,
-        pageSize: pageSize,
-        includeSolutions: includeSolutions
-      });
+      const blob = await pdf(
+        <PdfDocument
+          puzzles={puzzles}
+          pageSize={pageSize}
+          includeSolutions={includeSolutions}
+          isSinglePage={false}
+        />
+      ).toBlob();
+      
+      const arrayBuffer = await blob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      await writeFile(filePath, uint8Array);
       
       alert(`Successfully saved book to ${filePath}`);
     } catch (e) {

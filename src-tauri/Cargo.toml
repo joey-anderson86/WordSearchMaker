@@ -26,8 +26,9 @@ serde_json = { version = "=1.0.128" }
 ts-rs = { version = "10.0", features = ["format"] }
 rand = "0.8"
 uuid = { version = "1.11.0", features = ["v4"] }
-printpdf = "0.7.0"
+tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
+
 
 
 
