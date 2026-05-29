@@ -2,7 +2,7 @@ import { Document, Page, View, Text, StyleSheet, Svg, Line } from "@react-pdf/re
 import { PuzzlePayload, WordSearchData } from "../store";
 
 interface PdfDocumentProps {
-  puzzles: PuzzlePayload<WordSearchData>[];
+  puzzles: PuzzlePayload<any>[];
   pageSize: string;
   includeSolutions: boolean;
   isSinglePage?: boolean;
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const renderPuzzlePage = (
+const renderWordSearchPage = (
   puzzle: PuzzlePayload<WordSearchData>,
   drawSolutions: boolean,
   pageSize: string
@@ -321,6 +321,296 @@ const renderPuzzlePage = (
   );
 };
 
+const renderSudokuPage = (
+  puzzle: PuzzlePayload<any>,
+  drawSolutions: boolean,
+  pageSize: string
+) => {
+  const { title, grid, specific_data } = puzzle;
+  const { difficulty, solution } = specific_data;
+
+  const cols = 9;
+  const rows = 9;
+
+  const { width: pageWidth } = getPageDimensions(pageSize);
+
+  // Spacing calculations to fit standard layouts comfortably
+  const maxGridWidth = pageWidth - 80;
+  const maxGridHeight = 360;
+  const cellSize = Math.min(36, maxGridWidth / cols, maxGridHeight / rows);
+  const gridWidth = cols * cellSize;
+  const gridHeight = rows * cellSize;
+
+  return (
+    <Page
+      key={`${puzzle.id}-${drawSolutions ? "sol" : "puz"}`}
+      size={pageSize.toUpperCase() as any}
+      style={styles.page}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>
+            {drawSolutions ? `Solution: ${title}` : title}
+          </Text>
+          <Text style={styles.subtitle}>
+            Sudoku • {difficulty.toUpperCase()} • 9 x 9 Grid
+          </Text>
+        </View>
+      </View>
+
+      {/* Grid Container */}
+      <View style={styles.gridContainer}>
+        <View style={[styles.gridOuter, { width: gridWidth, height: gridHeight, borderWidth: 2, borderColor: '#1e293b' }]}>
+          <View style={styles.grid}>
+            {grid.map((row: any[], rIdx: number) => (
+              <View key={rIdx} style={styles.row}>
+                {row.map((cell: any, cIdx: number) => {
+                  const startingVal = cell;
+                  const isStarting = startingVal !== null;
+                  let displayVal = cell;
+                  if (!isStarting && drawSolutions) {
+                    displayVal = solution[rIdx][cIdx];
+                  }
+
+                  // Dynamically set subgrid borders in react-pdf
+                  const borderTop = rIdx % 3 === 0 && rIdx !== 0 ? 2.5 : 0.5;
+                  const borderLeft = cIdx % 3 === 0 && cIdx !== 0 ? 2.5 : 0.5;
+
+                  return (
+                    <View
+                      key={cIdx}
+                      style={[
+                        styles.cell,
+                        {
+                          width: cellSize,
+                          height: cellSize,
+                          borderTopWidth: borderTop,
+                          borderLeftWidth: borderLeft,
+                          borderBottomWidth: 0,
+                          borderRightWidth: 0,
+                          borderColor: '#334155',
+                          backgroundColor: isStarting ? '#ffffff' : (drawSolutions ? '#f5f3ff' : '#ffffff')
+                        }
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.cellText,
+                          {
+                            fontSize: cellSize * 0.5,
+                            fontFamily: isStarting ? 'Helvetica-Bold' : 'Helvetica',
+                            color: isStarting ? '#0f172a' : '#4f46e5'
+                          }
+                        ]}
+                      >
+                        {displayVal === null ? "" : displayVal}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* Info panel at the bottom */}
+      <View style={styles.wordBankContainer}>
+        <Text style={styles.wordBankTitle}>Sudoku Instructions</Text>
+        <Text style={[styles.wordBankText, { fontSize: 8.5, lineHeight: 1.4 }]}>
+          Complete the grid so that every row, column, and 3x3 block contains every digit from 1 to 9.
+          Predefined numbers (clues) are shown in bold black; filled cells are shown in blue.
+        </Text>
+      </View>
+
+      {/* Footer */}
+      <Text
+        style={styles.footer}
+        render={({ pageNumber }) => `Page ${pageNumber}`}
+        fixed
+      />
+    </Page>
+  );
+};
+
+const renderCrosswordPage = (
+  puzzle: PuzzlePayload<any>,
+  drawSolutions: boolean,
+  pageSize: string
+) => {
+  const { title, grid, specific_data } = puzzle;
+  const { difficulty, solution, clues } = specific_data;
+
+  const cols = grid[0]?.length || 0;
+  const rows = grid.length || 0;
+
+  const { width: pageWidth } = getPageDimensions(pageSize);
+
+  // Spacing calculations to fit standard layouts comfortably
+  const maxGridWidth = pageWidth - 80;
+  const maxGridHeight = 320;
+  const cellWidth = maxGridWidth / cols;
+  const cellHeight = maxGridHeight / rows;
+  const cellSize = Math.min(26, cellWidth, cellHeight);
+  const gridWidth = cols * cellSize;
+  const gridHeight = rows * cellSize;
+
+  // Split clues into Across and Down
+  const acrossClues = clues.filter((c: any) => c.direction === "across");
+  const downClues = clues.filter((c: any) => c.direction === "down");
+
+  return (
+    <Page
+      key={`${puzzle.id}-${drawSolutions ? "sol" : "puz"}`}
+      size={pageSize.toUpperCase() as any}
+      style={styles.page}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>
+            {drawSolutions ? `Solution: ${title}` : title}
+          </Text>
+          <Text style={styles.subtitle}>
+            Crossword • {difficulty.toUpperCase()} • {cols} x {rows} Grid
+          </Text>
+        </View>
+      </View>
+
+      {/* Grid Container */}
+      <View style={styles.gridContainer}>
+        <View style={[styles.gridOuter, { width: gridWidth, height: gridHeight, borderWidth: 1.5, borderColor: '#1e293b' }]}>
+          <View style={styles.grid}>
+            {grid.map((row: any[], rIdx: number) => (
+              <View key={rIdx} style={styles.row}>
+                {row.map((cell: any, cIdx: number) => {
+                  const isBlack = cell === "#";
+                  let displayVal = "";
+                  if (!isBlack && drawSolutions) {
+                    displayVal = solution[rIdx][cIdx];
+                  }
+
+                  // Find clue starting here for clue number in top-left
+                  const clue = clues.find((c: any) => c.row === rIdx && c.col === cIdx);
+
+                  return (
+                    <View
+                      key={cIdx}
+                      style={[
+                        styles.cell,
+                        {
+                          width: cellSize,
+                          height: cellSize,
+                          borderWidth: 0.5,
+                          borderColor: '#94a3b8',
+                          backgroundColor: isBlack ? '#1e293b' : '#ffffff',
+                          position: 'relative'
+                        }
+                      ]}
+                    >
+                      {clue && (
+                        <Text
+                          style={{
+                            position: 'absolute',
+                            top: 1,
+                            left: 1,
+                            fontSize: cellSize * 0.25,
+                            fontFamily: 'Helvetica-Bold',
+                            color: '#64748b'
+                          }}
+                        >
+                          {clue.number}
+                        </Text>
+                      )}
+                      {!isBlack && (
+                        <Text
+                          style={[
+                            styles.cellText,
+                            {
+                              fontSize: cellSize * 0.5,
+                              fontFamily: 'Helvetica-Bold',
+                              color: drawSolutions ? '#4f46e5' : '#1e293b'
+                            }
+                          ]}
+                        >
+                          {displayVal}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* Clues section */}
+      <View style={{ display: 'flex', flexDirection: 'row', gap: 15, marginTop: 15 }}>
+        {/* Across Column */}
+        <View style={[styles.wordBankContainer, { flex: 1, marginTop: 0 }]}>
+          <Text style={styles.wordBankTitle}>Across Clues</Text>
+          <View style={styles.wordBankGrid}>
+            {acrossClues.map((c: any) => (
+              <View key={c.id} style={{ display: 'flex', flexDirection: 'row', marginBottom: 3 }}>
+                <Text style={[styles.wordBankText, { fontFamily: 'Helvetica-Bold', width: 14 }]}>
+                  {c.number}.
+                </Text>
+                <Text style={[styles.wordBankText, { flex: 1 }]}>
+                  {c.clue} ({c.answer.length})
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Down Column */}
+        <View style={[styles.wordBankContainer, { flex: 1, marginTop: 0 }]}>
+          <Text style={styles.wordBankTitle}>Down Clues</Text>
+          <View style={styles.wordBankGrid}>
+            {downClues.map((c: any) => (
+              <View key={c.id} style={{ display: 'flex', flexDirection: 'row', marginBottom: 3 }}>
+                <Text style={[styles.wordBankText, { fontFamily: 'Helvetica-Bold', width: 14 }]}>
+                  {c.number}.
+                </Text>
+                <Text style={[styles.wordBankText, { flex: 1 }]}>
+                  {c.clue} ({c.answer.length})
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* Unplaced Clues */}
+      {specific_data.unplaced_words?.length > 0 && (
+        <View style={[styles.unplacedContainer, { marginTop: 10, padding: 6 }]}>
+          <Text style={[styles.unplacedTitle, { fontSize: 8.5 }]}>
+            Unplaced Clues (Could not fit in grid):
+          </Text>
+          <View style={styles.unplacedGrid}>
+            <View style={styles.unplacedRow}>
+              <View style={styles.unplacedCell}>
+                <Text style={[styles.unplacedText, { fontSize: 7.5, lineHeight: 1.3 }]}>
+                  {specific_data.unplaced_words.map((c: any) => `${c.word}: ${c.clue}`).join("   |   ")}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Footer */}
+      <Text
+        style={styles.footer}
+        render={({ pageNumber }) => `Page ${pageNumber}`}
+        fixed
+      />
+    </Page>
+  );
+};
+
 export function PdfDocument({
   puzzles,
   pageSize,
@@ -331,14 +621,22 @@ export function PdfDocument({
     <Document>
       {/* 1. Puzzle Pages */}
       {puzzles.map((puzzle) =>
-        renderPuzzlePage(puzzle, false, pageSize)
+        puzzle.puzzle_type === "Sudoku"
+          ? renderSudokuPage(puzzle, false, pageSize)
+          : puzzle.puzzle_type === "Crossword"
+            ? renderCrosswordPage(puzzle, false, pageSize)
+            : renderWordSearchPage(puzzle, false, pageSize)
       )}
 
-      {/* 2. Solution Pages (if not single page and includeSolutions is true) */}
+      {/* 2. Solution Pages */}
       {!isSinglePage &&
         includeSolutions &&
         puzzles.map((puzzle) =>
-          renderPuzzlePage(puzzle, true, pageSize)
+          puzzle.puzzle_type === "Sudoku"
+            ? renderSudokuPage(puzzle, true, pageSize)
+            : puzzle.puzzle_type === "Crossword"
+              ? renderCrosswordPage(puzzle, true, pageSize)
+              : renderWordSearchPage(puzzle, true, pageSize)
         )}
     </Document>
   );

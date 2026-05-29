@@ -135,17 +135,21 @@ export function Preview() {
     }
   };
 
+  const isSudoku = activePuzzle.puzzle_type === "Sudoku";
+  const isCrossword = activePuzzle.puzzle_type === "Crossword";
   const cols = activePuzzle.grid[0]?.length || 0;
   const rows = activePuzzle.grid.length || 0;
 
   // Sizing calculations to fit the container
-  const gap = cols > 20 || rows > 20 ? 2 : 4;
+  const gap = isSudoku || isCrossword ? 0 : (cols > 20 || rows > 20 ? 2 : 4);
   const containerW = dimensions.width;
   const containerH = dimensions.height;
 
   const maxCellSizeW = (containerW - (cols - 1) * gap) / cols;
   const maxCellSizeH = (containerH - (rows - 1) * gap) / rows;
-  const cellSize = Math.min(32, Math.max(10, Math.min(maxCellSizeW, maxCellSizeH)));
+  const cellSize = isSudoku || isCrossword
+    ? Math.min(48, Math.max(20, Math.min(maxCellSizeW, maxCellSizeH)))
+    : Math.min(32, Math.max(10, Math.min(maxCellSizeW, maxCellSizeH)));
   const fontSize = cellSize * 0.55;
 
   const step = cellSize + gap;
@@ -159,7 +163,7 @@ export function Preview() {
         <div>
           <h1 className="text-3xl font-black text-slate-800 leading-none">{activePuzzle.title}</h1>
           <p className="text-slate-500 mt-2 font-medium">
-            {cols} x {rows} Grid
+            {isSudoku ? "Sudoku • 9 x 9 Grid" : isCrossword ? `Crossword • ${cols} x ${rows} Grid` : `${cols} x ${rows} Grid`}
           </p>
         </div>
 
@@ -236,32 +240,92 @@ export function Preview() {
                 gap: `${gap}px`,
                 width: `${gridWidth}px`,
                 height: `${gridHeight}px`,
+                border: isSudoku || isCrossword ? "3px solid #334155" : "none"
               }}
             >
               {activePuzzle.grid.map((row, y) => (
-                row.map((cell, x) => (
-                  <div 
-                    key={`${x}-${y}`} 
-                    className="flex items-center justify-center rounded hover:bg-slate-100 cursor-default"
-                    style={{
-                      width: `${cellSize}px`,
-                      height: `${cellSize}px`,
-                      fontSize: `${fontSize}px`,
-                    }}
-                  >
-                    {cell}
-                  </div>
-                ))
+                row.map((cell, x) => {
+                  const startingVal = cell;
+                  
+                  let displayVal = cell;
+                  let isSolutionValue = false;
+                  let isBlackCell = isCrossword && cell === "#";
+                  
+                  if (isSudoku) {
+                    const isStarting = startingVal !== null;
+                    if (!isStarting && showSolutions) {
+                      displayVal = activePuzzle.specific_data.solution?.[y]?.[x] ?? null;
+                      isSolutionValue = true;
+                    }
+                  } else if (isCrossword) {
+                    if (!isBlackCell && showSolutions) {
+                      displayVal = activePuzzle.specific_data.solution?.[y]?.[x] ?? "";
+                      isSolutionValue = true;
+                    } else {
+                      displayVal = "";
+                    }
+                  }
+
+                  let cellBorders = "";
+                  if (isSudoku) {
+                    const topBorder = y % 3 === 0 ? "border-t-[3px] border-t-slate-700" : "border-t border-t-slate-200";
+                    const leftBorder = x % 3 === 0 ? "border-l-[3px] border-l-slate-700" : "border-l border-l-slate-200";
+                    const bottomBorder = y === 8 ? "border-b-[3px] border-b-slate-700" : "";
+                    const rightBorder = x === 8 ? "border-r-[3px] border-r-slate-700" : "";
+                    cellBorders = `${topBorder} ${leftBorder} ${bottomBorder} ${rightBorder}`;
+                  } else if (isCrossword) {
+                    cellBorders = "border border-slate-300";
+                  }
+
+                  // Find clue starting at y, x for crossword numbering
+                  const crosswordClue = isCrossword
+                    ? activePuzzle.specific_data.clues?.find((c: any) => c.row === y && c.col === x)
+                    : null;
+
+                  return (
+                    <div 
+                      key={`${x}-${y}`} 
+                      className={`relative flex items-center justify-center cursor-default ${cellBorders} ${
+                        isSudoku 
+                          ? isSolutionValue 
+                            ? "text-indigo-600 bg-indigo-50/40" 
+                            : "text-slate-900 font-extrabold bg-white"
+                          : isCrossword
+                            ? isBlackCell
+                              ? "bg-slate-800"
+                              : isSolutionValue
+                                ? "text-indigo-600 bg-indigo-50/20 font-extrabold"
+                                : "bg-white"
+                            : "rounded hover:bg-slate-100"
+                      }`}
+                      style={{
+                        width: `${cellSize}px`,
+                        height: `${cellSize}px`,
+                        fontSize: `${fontSize}px`,
+                      }}
+                    >
+                      {isCrossword && crosswordClue && (
+                        <span 
+                          className="absolute top-0.5 left-0.5 text-slate-500 font-bold leading-none select-none"
+                          style={{ fontSize: `${Math.max(6, fontSize * 0.45)}px` }}
+                        >
+                          {crosswordClue.number}
+                        </span>
+                      )}
+                      {!isBlackCell ? (displayVal === null ? "" : displayVal) : ""}
+                    </div>
+                  );
+                })
               ))}
             </div>
 
-            {showSolutions && (
+            {!isSudoku && !isCrossword && showSolutions && (
               <svg 
                 className="absolute inset-0 pointer-events-none w-full h-full"
                 style={{ overflow: "visible" }}
                 viewBox={`0 0 ${gridWidth} ${gridHeight}`}
               >
-                {activePuzzle.specific_data.solutions.map((sol, index) => {
+                {activePuzzle.specific_data.solutions.map((sol: any, index: number) => {
                   const x1 = sol.start_x * step + cellSize / 2;
                   const y1 = sol.start_y * step + cellSize / 2;
                   const x2 = sol.end_x * step + cellSize / 2;
@@ -273,7 +337,6 @@ export function Preview() {
                   const isHovered = hoveredWord === sol.word;
                   const isAnyHovered = hoveredWord !== null;
 
-                  // Highlighting dimensions scale with cell size
                   const hHeight = cellSize * 1.125;
                   const hRadius = hHeight / 2;
                   const hoverHeight = hHeight + 8;
@@ -286,7 +349,6 @@ export function Preview() {
                       onMouseEnter={() => setHoveredWord(sol.word)}
                       onMouseLeave={() => setHoveredWord(null)}
                     >
-                      {/* Invisible wider boundary to make hovering easy */}
                       <rect
                         x={x1 - hoverRadius}
                         y={y1 - hoverRadius}
@@ -297,7 +359,6 @@ export function Preview() {
                         transform={`rotate(${angle}, ${x1}, ${y1})`}
                         fill="transparent"
                       />
-                      {/* Visible rounded highlighting box */}
                       <rect
                         x={x1 - hRadius}
                         y={y1 - hRadius}
@@ -322,57 +383,146 @@ export function Preview() {
           </div>
         </div>
 
-        {/* Word Bank Container */}
-        <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex-shrink-0 max-h-[30%] overflow-y-auto">
-          <h3 className="font-bold text-slate-800 mb-3 text-base border-b pb-1.5 flex items-center justify-between">
-            <span>Word Bank</span>
-            <span className="text-xs text-slate-400 font-normal">
-              {activePuzzle.specific_data.word_bank.length - activePuzzle.specific_data.unplaced_words.length} / {activePuzzle.specific_data.word_bank.length} Placed
-            </span>
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {activePuzzle.specific_data.word_bank.map((word, i) => {
-              const unplaced = activePuzzle.specific_data.unplaced_words.includes(word);
-              const upperWord = word.toUpperCase();
-              const isHovered = hoveredWord === upperWord;
-              const isAnyHovered = hoveredWord !== null;
+        {/* Word Bank Container (Word Search) */}
+        {activePuzzle.puzzle_type === "WordSearch" && (
+          <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex-shrink-0 max-h-[30%] overflow-y-auto">
+            <h3 className="font-bold text-slate-800 mb-3 text-base border-b pb-1.5 flex items-center justify-between">
+              <span>Word Bank</span>
+              <span className="text-xs text-slate-400 font-normal">
+                {activePuzzle.specific_data.word_bank.length - activePuzzle.specific_data.unplaced_words.length} / {activePuzzle.specific_data.word_bank.length} Placed
+              </span>
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {activePuzzle.specific_data.word_bank.map((word: string, i: number) => {
+                const unplaced = activePuzzle.specific_data.unplaced_words.includes(word);
+                const upperWord = word.toUpperCase();
+                const isHovered = hoveredWord === upperWord;
+                const isAnyHovered = hoveredWord !== null;
 
-              // Word bank dynamic styling based on cellSize (or isLargeGrid)
-              let wordBankFontSize = "text-sm";
-              let wordBankPadding = "px-3 py-1.5";
-              if (cellSize < 16) {
-                wordBankFontSize = "text-[10px]";
-                wordBankPadding = "px-1.5 py-0.5";
-              } else if (cellSize < 24) {
-                wordBankFontSize = "text-xs";
-                wordBankPadding = "px-2.5 py-1";
-              }
+                let wordBankFontSize = "text-sm";
+                let wordBankPadding = "px-3 py-1.5";
+                if (cellSize < 16) {
+                  wordBankFontSize = "text-[10px]";
+                  wordBankPadding = "px-1.5 py-0.5";
+                } else if (cellSize < 24) {
+                  wordBankFontSize = "text-xs";
+                  wordBankPadding = "px-2.5 py-1";
+                }
 
-              return (
-                <span 
-                  key={i} 
-                  onMouseEnter={() => setHoveredWord(upperWord)}
-                  onMouseLeave={() => setHoveredWord(null)}
-                  className={`rounded-full font-semibold tracking-wide flex items-center gap-1.5 cursor-pointer transition-all duration-200 border ${wordBankFontSize} ${wordBankPadding} ${
-                    unplaced 
-                      ? isHovered
-                        ? "bg-red-200 text-red-800 border-red-300 scale-105 shadow-md shadow-red-100"
-                        : "bg-red-100 text-red-700 border-red-200" 
-                      : isHovered
-                        ? "bg-emerald-200 text-emerald-900 border-emerald-300 scale-105 shadow-md shadow-emerald-100"
-                        : "bg-emerald-100 text-emerald-800 border-emerald-200"
-                  }`}
-                  style={{
-                    opacity: isAnyHovered && !isHovered ? 0.4 : 1,
-                  }}
-                >
-                  {unplaced && <AlertCircle size={cellSize < 16 ? 10 : 14} />}
-                  {word}
-                </span>
-              );
-            })}
+                return (
+                  <span 
+                    key={i} 
+                    onMouseEnter={() => setHoveredWord(upperWord)}
+                    onMouseLeave={() => setHoveredWord(null)}
+                    className={`rounded-full font-semibold tracking-wide flex items-center gap-1.5 cursor-pointer transition-all duration-200 border ${wordBankFontSize} ${wordBankPadding} ${
+                      unplaced 
+                        ? isHovered
+                          ? "bg-red-200 text-red-800 border-red-300 scale-105 shadow-md shadow-red-100"
+                          : "bg-red-100 text-red-700 border-red-200" 
+                        : isHovered
+                          ? "bg-emerald-200 text-emerald-900 border-emerald-300 scale-105 shadow-md shadow-emerald-100"
+                          : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                    }`}
+                    style={{
+                      opacity: isAnyHovered && !isHovered ? 0.4 : 1,
+                    }}
+                  >
+                    {unplaced && <AlertCircle size={cellSize < 16 ? 10 : 14} />}
+                    {word}
+                  </span>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Number Placement Helper (Sudoku) */}
+        {activePuzzle.puzzle_type === "Sudoku" && (
+          <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex-shrink-0">
+            <h3 className="font-bold text-slate-800 mb-3 text-base border-b pb-1.5 flex items-center justify-between">
+              <span>Sudoku Number Counter</span>
+              <span className="text-xs text-slate-400 font-normal">
+                Frequency of starting clues in the grid
+              </span>
+            </h3>
+            <div className="flex flex-wrap gap-2 justify-around py-1">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+                let count = 0;
+                activePuzzle.grid.forEach(row => {
+                  row.forEach(cell => {
+                    if (cell === num) count++;
+                  });
+                });
+
+                return (
+                  <div 
+                    key={num} 
+                    className={`flex flex-col items-center gap-1 p-2 rounded-xl border min-w-[70px] transition-all ${
+                      count === 9 
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
+                        : "bg-slate-50 border-slate-150 text-slate-700"
+                    }`}
+                  >
+                    <span className="text-base font-extrabold">{num}</span>
+                    <span className="text-[10px] text-slate-400">
+                      {count} / 9 clues
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Clues Panel (Crossword) */}
+        {activePuzzle.puzzle_type === "Crossword" && (
+          <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex-shrink-0 max-h-[35%] overflow-y-auto flex flex-col">
+            <h3 className="font-bold text-slate-800 mb-3 text-base border-b pb-1.5 flex justify-between">
+              <span>Crossword Clues</span>
+              <span className="text-xs text-slate-400 font-normal">
+                Theme: {activePuzzle.title.split(": ").slice(1).join("") || "General"}
+              </span>
+            </h3>
+            {activePuzzle.specific_data.unplaced_words?.length > 0 && (
+              <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-[11px] text-amber-800">
+                <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                <span>
+                  <strong>Warning:</strong> {activePuzzle.specific_data.unplaced_words.length} clue(s) could not fit in the grid: <strong>{activePuzzle.specific_data.unplaced_words.map((c: any) => c.word).join(", ")}</strong>. Try increasing grid dimensions.
+                </span>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
+              {/* Across Column */}
+              <div>
+                <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b pb-1">Across</h4>
+                <div className="flex flex-col gap-2 overflow-y-auto max-h-[120px] pr-2">
+                  {activePuzzle.specific_data.clues
+                    .filter((c: any) => c.direction === "across")
+                    .map((c: any) => (
+                      <div key={c.id} className="text-xs text-slate-700 leading-normal flex gap-1.5">
+                        <span className="font-bold text-indigo-650 min-w-4">{c.number}.</span>
+                        <span>{c.clue} <span className="text-[10px] text-slate-400 font-bold">({c.answer.length})</span></span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              {/* Down Column */}
+              <div>
+                <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b pb-1">Down</h4>
+                <div className="flex flex-col gap-2 overflow-y-auto max-h-[120px] pr-2">
+                  {activePuzzle.specific_data.clues
+                    .filter((c: any) => c.direction === "down")
+                    .map((c: any) => (
+                      <div key={c.id} className="text-xs text-slate-700 leading-normal flex gap-1.5">
+                        <span className="font-bold text-indigo-650 min-w-4">{c.number}.</span>
+                        <span>{c.clue} <span className="text-[10px] text-slate-400 font-bold">({c.answer.length})</span></span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

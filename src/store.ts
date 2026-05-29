@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+export type PuzzlePayloadType = "WordSearch" | "Sudoku" | "Crossword";
+
 export interface WordPlacement {
     word: string;
     start_x: number;
@@ -14,16 +16,44 @@ export interface WordSearchData {
     solutions: WordPlacement[];
 }
 
-export interface PuzzlePayload<T> {
+export interface SudokuData {
+    difficulty: "easy" | "medium" | "hard" | "expert";
+    solution: number[][];
+}
+
+export interface CrosswordClue {
     id: string;
-    puzzle_type: "WordSearch";
+    number: number;
+    direction: "across" | "down";
+    row: number;
+    col: number;
+    clue: string;
+    answer: string;
+}
+
+export interface CrosswordClueInput {
+    word: string;
+    clue: string;
+}
+
+export interface CrosswordData {
+    difficulty: "easy" | "medium" | "hard";
+    solution: string[][];
+    clues: CrosswordClue[];
+    word_bank: CrosswordClueInput[];
+    unplaced_words: CrosswordClueInput[];
+}
+
+export interface PuzzlePayload<T = any> {
+    id: string;
+    puzzle_type: PuzzlePayloadType;
     title: string;
-    grid: string[][];
+    grid: (string | number | null)[][];
     specific_data: T;
 }
 
 interface AppState {
-    puzzles: PuzzlePayload<WordSearchData>[];
+    puzzles: PuzzlePayload<any>[];
     selectedPuzzleId: string | null;
     pageSize: string;
     bookTitle: string;
@@ -32,8 +62,8 @@ interface AppState {
     setPageSize: (pageSize: string) => void;
     setIncludeSolutions: (includeSolutions: boolean) => void;
     setSelectedPuzzleId: (id: string | null) => void;
-    addPuzzle: (puzzle: PuzzlePayload<WordSearchData>) => void;
-    updatePuzzle: (id: string, updated: PuzzlePayload<WordSearchData>) => void;
+    addPuzzle: (puzzle: PuzzlePayload<any>) => void;
+    updatePuzzle: (id: string, updated: PuzzlePayload<any>) => void;
     deletePuzzle: (id: string) => void;
     reorderPuzzles: (startIndex: number, endIndex: number) => void;
     clearPuzzles: () => void;

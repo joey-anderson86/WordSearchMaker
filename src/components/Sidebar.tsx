@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useStore, PuzzlePayload, WordSearchData } from "../store";
+import { useStore, PuzzlePayload, WordSearchData, SudokuData, CrosswordData, PuzzlePayloadType } from "../store";
 import { 
   Settings, 
   FileText, 
@@ -40,11 +40,16 @@ export function Sidebar() {
   const deletePuzzle = useStore((state) => state.deletePuzzle);
   const reorderPuzzles = useStore((state) => state.reorderPuzzles);
 
+  const [selectedTypeToCreate, setSelectedTypeToCreate] = useState<PuzzlePayloadType>("WordSearch");
   const [editTitle, setEditTitle] = useState("");
   const [editWidth, setEditWidth] = useState(15);
   const [editHeight, setEditHeight] = useState(15);
   const [editWords, setEditWords] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // States for adding new custom crossword clues
+  const [newCwWord, setNewCwWord] = useState("");
+  const [newCwClue, setNewCwClue] = useState("");
 
   const selectedPuzzle = puzzles.find((p) => p.id === selectedPuzzleId);
 
@@ -54,7 +59,11 @@ export function Sidebar() {
       setEditTitle(selectedPuzzle.title);
       setEditWidth(selectedPuzzle.grid[0]?.length || 15);
       setEditHeight(selectedPuzzle.grid.length || 15);
-      setEditWords(selectedPuzzle.specific_data.word_bank.join("\n"));
+      if (selectedPuzzle.puzzle_type === "WordSearch") {
+        setEditWords(selectedPuzzle.specific_data.word_bank.join("\n"));
+      } else {
+        setEditWords("");
+      }
     }
   }, [selectedPuzzleId, selectedPuzzle?.id]);
 
@@ -68,21 +77,56 @@ export function Sidebar() {
   const handleAddPuzzle = async () => {
     setIsGenerating(true);
     try {
-      const themeIndex = puzzles.length % defaultThemes.length;
-      const theme = defaultThemes[themeIndex];
-      const wordList = theme.words
-        .split("\n")
-        .map((w) => w.trim())
-        .filter((w) => w.length > 0);
+      if (selectedTypeToCreate === "Sudoku") {
+        const { generateSudoku } = await import("../puzzles/sudokuGenerator");
+        const { grid, solution } = generateSudoku("easy");
 
-      const result: PuzzlePayload<WordSearchData> = await invoke("generate_puzzle", {
-        width: 15,
-        height: 15,
-        words: wordList,
-      });
+        const newPuzzle: PuzzlePayload<SudokuData> = {
+          id: `sudoku-${Date.now()}`,
+          puzzle_type: "Sudoku",
+          title: `Puzzle ${puzzles.length + 1}: Sudoku (Easy)`,
+          grid: grid,
+          specific_data: {
+            difficulty: "easy",
+            solution: solution
+          }
+        };
+        addPuzzle(newPuzzle);
+      } else if (selectedTypeToCreate === "Crossword") {
+        const { layoutCrossword, DEFAULT_CROSSWORD_INPUTS } = await import("../puzzles/crosswordGenerator");
+        const { grid, solution, clues, unplaced } = layoutCrossword(DEFAULT_CROSSWORD_INPUTS, 11, 11);
 
-      result.title = `Puzzle ${puzzles.length + 1}: ${theme.name}`;
-      addPuzzle(result);
+        const newPuzzle: PuzzlePayload<CrosswordData> = {
+          id: `crossword-${Date.now()}`,
+          puzzle_type: "Crossword",
+          title: `Puzzle ${puzzles.length + 1}: Crossword Grid`,
+          grid: grid,
+          specific_data: {
+            difficulty: "easy",
+            solution: solution,
+            clues: clues,
+            word_bank: DEFAULT_CROSSWORD_INPUTS.map(c => ({ ...c })),
+            unplaced_words: unplaced
+          }
+        };
+        addPuzzle(newPuzzle);
+      } else {
+        const themeIndex = puzzles.length % defaultThemes.length;
+        const theme = defaultThemes[themeIndex];
+        const wordList = theme.words
+          .split("\n")
+          .map((w) => w.trim())
+          .filter((w) => w.length > 0);
+
+        const result: PuzzlePayload<WordSearchData> = await invoke("generate_puzzle", {
+          width: 15,
+          height: 15,
+          words: wordList,
+        });
+
+        result.title = `Puzzle ${puzzles.length + 1}: ${theme.name}`;
+        addPuzzle(result);
+      }
     } catch (e) {
       console.error("Failed to generate default puzzle", e);
     } finally {
@@ -98,6 +142,134 @@ export function Sidebar() {
         title: val,
       });
     }
+  };
+
+  const handleSudokuDifficultyChange = async (difficulty: "easy" | "medium" | "hard" | "expert") => {
+    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Sudoku") return;
+    setIsGenerating(true);
+    try {
+      const { generateSudoku } = await import("../puzzles/sudokuGenerator");
+      const { grid, solution } = generateSudoku(difficulty);
+
+      const updatedPuzzle: PuzzlePayload<SudokuData> = {
+        ...selectedPuzzle,
+        title: `Puzzle ${puzzles.indexOf(selectedPuzzle) + 1}: Sudoku (${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)})`,
+        grid: grid,
+        specific_data: {
+          difficulty,
+          solution
+        }
+      };
+      updatePuzzle(selectedPuzzle.id, updatedPuzzle);
+      setEditTitle(updatedPuzzle.title);
+    } catch (e) {
+      console.error("Failed to regenerate Sudoku with new difficulty", e);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleRegenerateSudoku = () => {
+    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Sudoku") return;
+    const diff = selectedPuzzle.specific_data.difficulty || "easy";
+    handleSudokuDifficultyChange(diff);
+  };
+
+  const handleRegenerateCrossword = async () => {
+    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Crossword") return;
+    setIsGenerating(true);
+    try {
+      const { layoutCrossword } = await import("../puzzles/crosswordGenerator");
+      const { grid, solution, clues, unplaced } = layoutCrossword(
+        selectedPuzzle.specific_data.word_bank,
+        editWidth,
+        editHeight
+      );
+
+      const updatedPuzzle: PuzzlePayload<CrosswordData> = {
+        ...selectedPuzzle,
+        grid: grid,
+        title: editTitle,
+        specific_data: {
+          ...selectedPuzzle.specific_data,
+          solution,
+          clues,
+          unplaced_words: unplaced
+        }
+      };
+      updatePuzzle(selectedPuzzle.id, updatedPuzzle);
+    } catch (e) {
+      console.error("Failed to compile crossword layout", e);
+      alert("Failed to compile crossword layout. Make sure you have intersecting characters or expand the grid size.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleAddCwClue = () => {
+    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Crossword") return;
+    if (!newCwWord.trim() || !newCwClue.trim()) return;
+
+    const newCluePair = {
+      word: newCwWord.trim().toUpperCase().replace(/[^A-Z]/g, ""),
+      clue: newCwClue.trim()
+    };
+
+    if (newCluePair.word.length < 2) {
+      alert("Word must be at least 2 letters long.");
+      return;
+    }
+
+    const updatedBank = [...selectedPuzzle.specific_data.word_bank, newCluePair];
+
+    import("../puzzles/crosswordGenerator").then(({ layoutCrossword }) => {
+      const { grid, solution, clues, unplaced } = layoutCrossword(
+        updatedBank,
+        editWidth,
+        editHeight
+      );
+
+      updatePuzzle(selectedPuzzle.id, {
+        ...selectedPuzzle,
+        grid: grid,
+        specific_data: {
+          ...selectedPuzzle.specific_data,
+          word_bank: updatedBank,
+          solution,
+          clues,
+          unplaced_words: unplaced
+        }
+      });
+    });
+
+    setNewCwWord("");
+    setNewCwClue("");
+  };
+
+  const handleRemoveCwClue = (index: number) => {
+    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Crossword") return;
+
+    const updatedBank = selectedPuzzle.specific_data.word_bank.filter((_: any, idx: number) => idx !== index);
+
+    import("../puzzles/crosswordGenerator").then(({ layoutCrossword }) => {
+      const { grid, solution, clues, unplaced } = layoutCrossword(
+        updatedBank,
+        editWidth,
+        editHeight
+      );
+
+      updatePuzzle(selectedPuzzle.id, {
+        ...selectedPuzzle,
+        grid: grid,
+        specific_data: {
+          ...selectedPuzzle.specific_data,
+          word_bank: updatedBank,
+          solution,
+          clues,
+          unplaced_words: unplaced
+        }
+      });
+    });
   };
 
   const handleRegenerate = async () => {
@@ -181,15 +353,26 @@ export function Sidebar() {
 
       {/* Book Pages Directory (Scrollable) */}
       <div className="flex-1 p-5 pt-3 overflow-y-auto flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Puzzles List ({puzzles.length})</span>
-          <button
-            onClick={handleAddPuzzle}
-            disabled={isGenerating}
-            className="flex items-center gap-1 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-400 hover:text-emerald-300 text-xs font-semibold py-1 px-2.5 rounded border border-emerald-500/30 transition-all cursor-pointer disabled:opacity-50"
-          >
-            <Plus size={14} /> Add Page
-          </button>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Puzzles ({puzzles.length})</span>
+          <div className="flex items-center gap-1">
+            <select
+              value={selectedTypeToCreate}
+              onChange={(e) => setSelectedTypeToCreate(e.target.value as PuzzlePayloadType)}
+              className="bg-slate-800 border border-slate-700 rounded py-0.5 px-1 text-[11px] focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer text-slate-200"
+            >
+              <option value="WordSearch">Word Search</option>
+              <option value="Sudoku">Sudoku</option>
+              <option value="Crossword">Crossword</option>
+            </select>
+            <button
+              onClick={handleAddPuzzle}
+              disabled={isGenerating}
+              className="flex items-center gap-1 bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-400 hover:text-emerald-300 text-[11px] font-bold py-0.5 px-2 rounded border border-emerald-500/30 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Plus size={12} /> Add
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -197,7 +380,13 @@ export function Sidebar() {
             const isSelected = p.id === selectedPuzzleId;
             const cols = p.grid[0]?.length || 0;
             const rows = p.grid.length || 0;
-            const wordCount = p.specific_data.word_bank.length;
+            const isWordSearch = p.puzzle_type === "WordSearch";
+            const isCrossword = p.puzzle_type === "Crossword";
+            const infoText = isWordSearch 
+              ? `${p.specific_data.word_bank.length} words`
+              : isCrossword
+                ? `${p.specific_data.clues.length} clues`
+                : `${p.specific_data.difficulty || "easy"}`;
 
             return (
               <div
@@ -217,9 +406,11 @@ export function Sidebar() {
                     </span>
                   </div>
                   <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                    <span>{wordCount} words</span>
+                    <span className="capitalize">{infoText}</span>
                     <span>•</span>
                     <span>{cols}x{rows}</span>
+                    <span>•</span>
+                    <span className="text-[9px] text-emerald-500 font-semibold">{p.puzzle_type}</span>
                   </div>
                 </div>
 
@@ -266,13 +457,13 @@ export function Sidebar() {
       </div>
 
       {/* Selected Puzzle Editor Panel (Fixed at Bottom) */}
-      <div className="p-5 border-t border-slate-800 bg-slate-950/20 flex flex-col gap-3 flex-shrink-0 overflow-y-auto max-h-[45%]">
+      <div className="p-5 border-t border-slate-800 bg-slate-950/20 flex flex-col gap-3 flex-shrink-0 overflow-y-auto max-h-[50%]">
         {selectedPuzzle ? (
           <>
             <div className="flex items-center gap-2 border-b border-slate-800/80 pb-1.5">
               <Settings className="text-emerald-400" size={16} />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Edit Page #{puzzles.findIndex((p) => p.id === selectedPuzzle.id) + 1}
+                Edit Page #{puzzles.findIndex((p) => p.id === selectedPuzzle.id) + 1} ({selectedPuzzle.puzzle_type})
               </h3>
             </div>
 
@@ -287,56 +478,184 @@ export function Sidebar() {
                 />
               </div>
 
-              <div className="flex gap-3">
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label className="text-[10px] font-semibold text-slate-400 flex justify-between">
-                    <span>Width</span>
-                    <span className="font-bold text-emerald-400">{editWidth}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="5"
-                    max="30"
-                    className="accent-emerald-500 cursor-pointer h-1 bg-slate-800 rounded-lg appearance-none"
-                    value={editWidth}
-                    onChange={(e) => setEditWidth(parseInt(e.target.value))}
-                  />
-                </div>
-                <div className="flex flex-col gap-1 w-1/2">
-                  <label className="text-[10px] font-semibold text-slate-400 flex justify-between">
-                    <span>Height</span>
-                    <span className="font-bold text-emerald-400">{editHeight}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="5"
-                    max="30"
-                    className="accent-emerald-500 cursor-pointer h-1 bg-slate-800 rounded-lg appearance-none"
-                    value={editHeight}
-                    onChange={(e) => setEditHeight(parseInt(e.target.value))}
-                  />
-                </div>
-              </div>
+              {selectedPuzzle.puzzle_type === "Sudoku" ? (
+                /* Sudoku Editor Panel */
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-semibold text-slate-400">Difficulty</label>
+                    <select
+                      className="bg-slate-800 border border-slate-750 rounded p-1.5 text-xs focus:ring-1 focus:ring-emerald-500 outline-none text-slate-100"
+                      value={selectedPuzzle.specific_data.difficulty || "easy"}
+                      onChange={(e) => handleSudokuDifficultyChange(e.target.value as any)}
+                    >
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                      <option value="expert">Expert</option>
+                    </select>
+                  </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-semibold text-slate-400 flex items-center gap-1">
-                  <FileText size={10} /> Word List (one per line)
-                </label>
-                <textarea
-                  className="bg-slate-800 border border-slate-750 rounded p-2 text-[11px] h-24 focus:ring-1 focus:ring-emerald-500 outline-none resize-none font-mono text-slate-100 leading-normal"
-                  value={editWords}
-                  onChange={(e) => setEditWords(e.target.value)}
-                ></textarea>
-              </div>
+                  <div className="text-[10px] text-slate-400 bg-slate-900/40 p-2 rounded border border-slate-800/60 leading-normal">
+                    <p className="font-bold text-slate-350 mb-0.5">Sudoku Rules:</p>
+                    Ensure every row, column, and 3x3 block contains all numbers from 1 to 9.
+                  </div>
 
-              <button
-                onClick={handleRegenerate}
-                disabled={isGenerating}
-                className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-xs font-bold py-2 px-3 rounded shadow-md transition-all flex justify-center items-center gap-1.5 active:scale-95 cursor-pointer"
-              >
-                <Sparkles size={14} className={isGenerating ? "animate-spin" : ""} />
-                {isGenerating ? "Generating..." : "Regenerate Grid"}
-              </button>
+                  <button
+                    onClick={handleRegenerateSudoku}
+                    disabled={isGenerating}
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-xs font-bold py-2 px-3 rounded shadow-md transition-all flex justify-center items-center gap-1.5 active:scale-95 cursor-pointer"
+                  >
+                    <Sparkles size={14} className={isGenerating ? "animate-spin" : ""} />
+                    {isGenerating ? "Regenerating..." : "Regenerate Sudoku"}
+                  </button>
+                </div>
+              ) : selectedPuzzle.puzzle_type === "Crossword" ? (
+                /* Crossword Editor Panel */
+                <div className="flex flex-col gap-3">
+                  {/* Grid Dimensions */}
+                  <div className="flex gap-3">
+                    <div className="flex flex-col gap-1 w-1/2">
+                      <label className="text-[10px] font-semibold text-slate-400 flex justify-between">
+                        <span>Width</span>
+                        <span className="font-bold text-emerald-400">{editWidth}</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="6"
+                        max="22"
+                        className="accent-emerald-500 cursor-pointer h-1 bg-slate-800 rounded-lg appearance-none"
+                        value={editWidth}
+                        onChange={(e) => setEditWidth(parseInt(e.target.value))}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 w-1/2">
+                      <label className="text-[10px] font-semibold text-slate-400 flex justify-between">
+                        <span>Height</span>
+                        <span className="font-bold text-emerald-400">{editHeight}</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="6"
+                        max="22"
+                        className="accent-emerald-500 cursor-pointer h-1 bg-slate-800 rounded-lg appearance-none"
+                        value={editHeight}
+                        onChange={(e) => setEditHeight(parseInt(e.target.value))}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Word List Manager */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-semibold text-slate-400">Manage Clues ({selectedPuzzle.specific_data.word_bank.length})</label>
+                    <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto bg-slate-900/60 p-2 rounded border border-slate-800/80">
+                      {selectedPuzzle.specific_data.word_bank.map((c: any, index: number) => (
+                        <div key={index} className="flex justify-between items-start gap-1.5 bg-slate-800/60 p-1.5 rounded text-[11px] border border-slate-750">
+                          <div className="flex flex-col gap-0.5 overflow-hidden">
+                            <span className="font-extrabold text-emerald-400 tracking-wide truncate">{c.word}</span>
+                            <span className="text-[10px] text-slate-400 leading-tight italic truncate">{c.clue}</span>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveCwClue(index)}
+                            className="p-1 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded flex-shrink-0"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Form to Add Clue */}
+                  <div className="bg-slate-900/40 p-2.5 rounded border border-slate-800/60 flex flex-col gap-2">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wide">Add Word & Clue</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Word"
+                        className="bg-slate-800 border border-slate-750 rounded p-1 text-xs w-1/3 outline-none text-slate-100 font-mono"
+                        value={newCwWord}
+                        onChange={(e) => setNewCwWord(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Clue"
+                        className="bg-slate-800 border border-slate-750 rounded p-1 text-xs w-2/3 outline-none text-slate-100"
+                        value={newCwClue}
+                        onChange={(e) => setNewCwClue(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      onClick={handleAddCwClue}
+                      className="bg-emerald-650/30 hover:bg-emerald-600/45 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold py-1 px-2.5 rounded active:scale-95 cursor-pointer self-end"
+                    >
+                      + Add Pair
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={handleRegenerateCrossword}
+                    disabled={isGenerating}
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-xs font-bold py-2 px-3 rounded shadow-md transition-all flex justify-center items-center gap-1.5 active:scale-95 cursor-pointer mt-1"
+                  >
+                    <Sparkles size={14} className={isGenerating ? "animate-spin" : ""} />
+                    {isGenerating ? "Compiling..." : "Re-Compile Grid"}
+                  </button>
+                </div>
+              ) : (
+                /* Word Search Editor Panel */
+                <>
+                  <div className="flex gap-3">
+                    <div className="flex flex-col gap-1 w-1/2">
+                      <label className="text-[10px] font-semibold text-slate-400 flex justify-between">
+                        <span>Width</span>
+                        <span className="font-bold text-emerald-400">{editWidth}</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="30"
+                        className="accent-emerald-500 cursor-pointer h-1 bg-slate-800 rounded-lg appearance-none"
+                        value={editWidth}
+                        onChange={(e) => setEditWidth(parseInt(e.target.value))}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 w-1/2">
+                      <label className="text-[10px] font-semibold text-slate-400 flex justify-between">
+                        <span>Height</span>
+                        <span className="font-bold text-emerald-400">{editHeight}</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="30"
+                        className="accent-emerald-500 cursor-pointer h-1 bg-slate-800 rounded-lg appearance-none"
+                        value={editHeight}
+                        onChange={(e) => setEditHeight(parseInt(e.target.value))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-semibold text-slate-400 flex items-center gap-1">
+                      <FileText size={10} /> Word List (one per line)
+                    </label>
+                    <textarea
+                      className="bg-slate-800 border border-slate-750 rounded p-2 text-[11px] h-24 focus:ring-1 focus:ring-emerald-500 outline-none resize-none font-mono text-slate-100 leading-normal"
+                      value={editWords}
+                      onChange={(e) => setEditWords(e.target.value)}
+                    ></textarea>
+                  </div>
+
+                  <button
+                    onClick={handleRegenerate}
+                    disabled={isGenerating}
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-xs font-bold py-2 px-3 rounded shadow-md transition-all flex justify-center items-center gap-1.5 active:scale-95 cursor-pointer"
+                  >
+                    <Sparkles size={14} className={isGenerating ? "animate-spin" : ""} />
+                    {isGenerating ? "Generating..." : "Regenerate Grid"}
+                  </button>
+                </>
+              )}
             </div>
           </>
         ) : (
