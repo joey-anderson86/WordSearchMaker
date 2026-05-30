@@ -1,5 +1,59 @@
-import { Document, Page, View, Text, StyleSheet, Svg, Line } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet, Svg, Rect, Font } from "@react-pdf/renderer";
 import { PuzzlePayload, WordSearchData } from "../store";
+
+Font.register({
+  family: 'Montserrat',
+  src: 'https://fonts.gstatic.com/s/montserrat/v25/JTUSjIg1_i6t8kCHKm459Wlhyw.ttf'
+});
+Font.register({
+  family: 'Inter',
+  src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50Knly2w.ttf'
+});
+Font.register({
+  family: 'Oswald',
+  src: 'https://fonts.gstatic.com/s/oswald/v49/TK3iWkUHHAI4Tcf4lbT7uM7B.ttf'
+});
+Font.register({
+  family: 'JetBrains Mono',
+  src: 'https://fonts.gstatic.com/s/jetbrainsmono/v18/tU3oV06n-9GS-vpp148vLa1v70__rOHzpYvcuC7b8Q.ttf'
+});
+Font.register({
+  family: 'Fira Code',
+  src: 'https://fonts.gstatic.com/s/firacode/v21/uDN75Zae4g6vMjUd6HLX23Zf4WZNPnJ7171R8-t6.ttf'
+});
+
+const fontStyleMap: Record<string, string> = {
+  "Modern Sans": "Montserrat",
+  "Display Geometric": "Oswald",
+  "Developer Mono": "JetBrains Mono"
+};
+
+const formatTitle = (title: string, themeAccents?: boolean) => {
+  if (!themeAccents) return title;
+  const match = title.match(/^(Puzzle \d+:\s*)(.*)$/);
+  if (match) {
+    const prefix = match[1];
+    const rest = match[2];
+    const tag = rest.replace(/[^a-zA-Z0-9]/g, "");
+    return `${prefix}<${tag} />`;
+  }
+  return `<${title.replace(/[^a-zA-Z0-9]/g, "")} />`;
+};
+
+const isCellInSolution = (x: number, y: number, solutions: any[]) => {
+  if (!solutions) return false;
+  return solutions.some((sol) => {
+    const dx = Math.sign(sol.end_x - sol.start_x);
+    const dy = Math.sign(sol.end_y - sol.start_y);
+    const len = Math.max(Math.abs(sol.end_x - sol.start_x), Math.abs(sol.end_y - sol.start_y)) + 1;
+    for (let i = 0; i < len; i++) {
+      if (sol.start_x + i * dx === x && sol.start_y + i * dy === y) {
+        return true;
+      }
+    }
+    return false;
+  });
+};
 
 interface PdfDocumentProps {
   puzzles: PuzzlePayload<any>[];
@@ -68,6 +122,7 @@ const styles = StyleSheet.create({
   row: {
     display: 'flex',
     flexDirection: 'row',
+    flexWrap: 'nowrap',
   },
   cell: {
     display: 'flex',
@@ -76,6 +131,8 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: '#e2e8f0',
     borderStyle: 'solid',
+    flexShrink: 0,
+    flexGrow: 0,
   },
   cellText: {
     fontFamily: 'Helvetica-Bold',
@@ -176,6 +233,18 @@ const renderWordSearchPage = (
 
   const { width: pageWidth } = getPageDimensions(pageSize);
 
+  const gridFont = puzzle.gridFont || "Modern Sans";
+  const titleFont = puzzle.titleFont || "Modern Sans";
+  const cellBordersSetting = puzzle.cellBorders || false;
+  const ideThemeSetting = puzzle.ideTheme || false;
+  const letterTrackingSetting = puzzle.letterTracking ?? 0;
+  const wordBankColumnsSetting = puzzle.wordBankColumns || 3;
+  const selectorStyleSetting = puzzle.selectorStyle || "Clean Text (No Bullets)";
+  const solutionStyleSetting = puzzle.solutionStyle || "Greyscale Mute";
+
+  const gridFontFamily = fontStyleMap[gridFont] || 'Helvetica-Bold';
+  const titleFontFamily = fontStyleMap[titleFont] || 'Helvetica-Bold';
+
   // Spacing calculations to fit standard layouts comfortably
   const maxGridWidth = pageWidth - 80;
   const maxGridHeight = 360;
@@ -187,7 +256,7 @@ const renderWordSearchPage = (
 
   // Placed words columns chunking
   const placedWords = word_bank.filter((w) => !unplaced_words.includes(w));
-  const numCols = 4;
+  const numCols = wordBankColumnsSetting;
   const wordRows: string[][] = [];
   for (let i = 0; i < placedWords.length; i += numCols) {
     wordRows.push(placedWords.slice(i, i + numCols));
@@ -199,6 +268,16 @@ const renderWordSearchPage = (
     unplacedRows.push(unplaced_words.slice(i, i + numCols));
   }
 
+  let prefix = "";
+  if (selectorStyleSetting === "Classic Bullet Points") {
+    prefix = "• ";
+  } else if (selectorStyleSetting === "Checkbox [ ] Style") {
+    prefix = "[ ] ";
+  }
+
+  const borderVal = cellBordersSetting ? 0.5 : 0;
+  const borderCol = ideThemeSetting ? '#334155' : '#e2e8f0';
+
   return (
     <Page
       key={`${puzzle.id}-${drawSolutions ? "sol" : "puz"}`}
@@ -208,37 +287,62 @@ const renderWordSearchPage = (
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>
-            {drawSolutions ? `Solution: ${title}` : title}
-          </Text>
-          <Text style={styles.subtitle}>
-            {cols} x {rows} Grid
+          <Text style={[styles.title, { fontFamily: titleFontFamily }]}>
+            {drawSolutions ? `Solution: ${formatTitle(title, puzzle.themeAccents)}` : formatTitle(title, puzzle.themeAccents)}
           </Text>
         </View>
       </View>
 
       {/* Grid Container */}
       <View style={styles.gridContainer}>
-        <View style={[styles.gridOuter, { width: gridWidth, height: gridHeight }]}>
+        <View style={[
+          styles.gridOuter, 
+          { 
+            width: ideThemeSetting ? gridWidth + 24 : gridWidth, 
+            height: ideThemeSetting ? gridHeight + 36 : gridHeight,
+            backgroundColor: ideThemeSetting ? '#0f172a' : '#ffffff',
+            borderColor: '#475569',
+            borderWidth: 1.5,
+            paddingTop: ideThemeSetting ? 24 : 0,
+            paddingHorizontal: ideThemeSetting ? 12 : 0,
+          }
+        ]}>
+          {ideThemeSetting && (
+            <View style={{ position: 'absolute', top: 8, left: 10, display: 'flex', flexDirection: 'row', gap: 4 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444' }} />
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#f59e0b' }} />
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981' }} />
+            </View>
+          )}
+
           {/* Solution Overlay */}
-          {drawSolutions && (
-            <Svg width={gridWidth} height={gridHeight} style={styles.svgOverlay}>
+          {drawSolutions && solutionStyleSetting === "Pill Outlines" && (
+            <Svg width={gridWidth} height={gridHeight} style={[styles.svgOverlay, { left: ideThemeSetting ? 12 : 0, top: ideThemeSetting ? 24 : 0 }]}>
               {solutions.map((sol, index) => {
                 const x1 = sol.start_x * cellSize + cellSize / 2;
                 const y1 = sol.start_y * cellSize + cellSize / 2;
                 const x2 = sol.end_x * cellSize + cellSize / 2;
                 const y2 = sol.end_y * cellSize + cellSize / 2;
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const L = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                const hHeight = cellSize * 1.0;
+                const hRadius = hHeight / 2;
+
                 return (
-                  <Line
+                  <Rect
                     key={index}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke="#f43f5e"
-                    strokeWidth={cellSize * 0.75}
-                    strokeLinecap="round"
-                    strokeOpacity={0.25}
+                    x={x1 - hRadius}
+                    y={y1 - hRadius}
+                    width={L + hHeight}
+                    height={hHeight}
+                    rx={hRadius}
+                    ry={hRadius}
+                    transform={`rotate(${angle}, ${x1}, ${y1})`}
+                    stroke="#ef4444"
+                    strokeWidth={1.5}
+                    fill="none"
                   />
                 );
               })}
@@ -249,16 +353,51 @@ const renderWordSearchPage = (
           <View style={styles.grid}>
             {grid.map((row, rIdx) => (
               <View key={rIdx} style={styles.row}>
-                {row.map((char, cIdx) => (
-                  <View
-                    key={cIdx}
-                    style={[styles.cell, { width: cellSize, height: cellSize }]}
-                  >
-                    <Text style={[styles.cellText, { fontSize: cellSize * 0.6 }]}>
-                      {char}
-                    </Text>
-                  </View>
-                ))}
+                {row.map((char, cIdx) => {
+                  let cellTextOpacity = 1.0;
+                  let cellTextCol = ideThemeSetting ? '#f8fafc' : '#1e293b';
+
+                  if (drawSolutions) {
+                    const inSol = isCellInSolution(cIdx, rIdx, solutions);
+                    if (solutionStyleSetting === "Greyscale Mute") {
+                      if (inSol) {
+                        cellTextCol = ideThemeSetting ? '#34d399' : '#4f46e5';
+                      } else {
+                        cellTextOpacity = 0.3;
+                        cellTextCol = ideThemeSetting ? '#475569' : '#cbd5e1';
+                      }
+                    }
+                  }
+
+                  return (
+                    <View
+                      key={cIdx}
+                      style={[
+                        styles.cell, 
+                        { 
+                          width: cellSize, 
+                          height: cellSize,
+                          borderWidth: borderVal,
+                          borderColor: borderCol,
+                          backgroundColor: ideThemeSetting ? 'transparent' : '#ffffff'
+                        }
+                      ]}
+                    >
+                      <Text style={[
+                        styles.cellText, 
+                        { 
+                          fontSize: cellSize * 0.6, 
+                          fontFamily: gridFontFamily, 
+                          letterSpacing: letterTrackingSetting,
+                          opacity: cellTextOpacity,
+                          color: cellTextCol
+                        }
+                      ]}>
+                        {char}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             ))}
           </View>
@@ -268,13 +407,13 @@ const renderWordSearchPage = (
       {/* Word Bank Container */}
       {placedWords.length > 0 && (
         <View style={styles.wordBankContainer}>
-          <Text style={styles.wordBankTitle}>Word Bank</Text>
+          <Text style={[styles.wordBankTitle, { fontFamily: titleFontFamily }]}>Word Bank</Text>
           <View style={styles.wordBankGrid}>
             {wordRows.map((row, rIdx) => (
               <View key={rIdx} style={styles.wordBankRow}>
                 {row.map((word, cIdx) => (
                   <View key={cIdx} style={styles.wordBankCell}>
-                    <Text style={styles.wordBankText}>• {word}</Text>
+                    <Text style={[styles.wordBankText, { fontFamily: titleFontFamily }]}>{prefix}{word}</Text>
                   </View>
                 ))}
                 {row.length < numCols &&
@@ -290,7 +429,7 @@ const renderWordSearchPage = (
       {/* Unplaced Words */}
       {unplaced_words.length > 0 && (
         <View style={styles.unplacedContainer}>
-          <Text style={styles.unplacedTitle}>
+          <Text style={[styles.unplacedTitle, { fontFamily: titleFontFamily }]}>
             Unplaced Words (Could not fit in grid):
           </Text>
           <View style={styles.unplacedGrid}>
@@ -298,7 +437,7 @@ const renderWordSearchPage = (
               <View key={rIdx} style={styles.unplacedRow}>
                 {row.map((word, cIdx) => (
                   <View key={cIdx} style={styles.unplacedCell}>
-                    <Text style={styles.unplacedText}>• {word}</Text>
+                    <Text style={[styles.unplacedText, { fontFamily: titleFontFamily }]}>{prefix}{word}</Text>
                   </View>
                 ))}
                 {row.length < numCols &&
@@ -354,7 +493,7 @@ const renderSudokuPage = (
             {drawSolutions ? `Solution: ${title}` : title}
           </Text>
           <Text style={styles.subtitle}>
-            Sudoku • {difficulty.toUpperCase()} • 9 x 9 Grid
+            Sudoku • {difficulty.toUpperCase()}
           </Text>
         </View>
       </View>
@@ -473,7 +612,7 @@ const renderCrosswordPage = (
             {drawSolutions ? `Solution: ${title}` : title}
           </Text>
           <Text style={styles.subtitle}>
-            Crossword • {difficulty.toUpperCase()} • {cols} x {rows} Grid
+            Crossword • {difficulty.toUpperCase()}
           </Text>
         </View>
       </View>

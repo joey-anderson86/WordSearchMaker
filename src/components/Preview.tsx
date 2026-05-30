@@ -6,6 +6,39 @@ import { pdf } from "@react-pdf/renderer";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { PdfDocument } from "./PdfDocument";
 
+const fontStyleMap: Record<string, string> = {
+  "Modern Sans": "'Montserrat', 'Inter', sans-serif",
+  "Display Geometric": "'Oswald', sans-serif",
+  "Developer Mono": "'JetBrains Mono', 'Fira Code', monospace"
+};
+
+const formatTitle = (title: string, themeAccents?: boolean) => {
+  if (!themeAccents) return title;
+  const match = title.match(/^(Puzzle \d+:\s*)(.*)$/);
+  if (match) {
+    const prefix = match[1];
+    const rest = match[2];
+    const tag = rest.replace(/[^a-zA-Z0-9]/g, "");
+    return `${prefix}<${tag} />`;
+  }
+  return `<${title.replace(/[^a-zA-Z0-9]/g, "")} />`;
+};
+
+const isCellInSolution = (x: number, y: number, solutions: any[]) => {
+  if (!solutions) return false;
+  return solutions.some((sol) => {
+    const dx = Math.sign(sol.end_x - sol.start_x);
+    const dy = Math.sign(sol.end_y - sol.start_y);
+    const len = Math.max(Math.abs(sol.end_x - sol.start_x), Math.abs(sol.end_y - sol.start_y)) + 1;
+    for (let i = 0; i < len; i++) {
+      if (sol.start_x + i * dx === x && sol.start_y + i * dy === y) {
+        return true;
+      }
+    }
+    return false;
+  });
+};
+
 export function Preview() {
   const puzzles = useStore((state) => state.puzzles);
   const selectedPuzzleId = useStore((state) => state.selectedPuzzleId);
@@ -140,6 +173,18 @@ export function Preview() {
   const cols = activePuzzle.grid[0]?.length || 0;
   const rows = activePuzzle.grid.length || 0;
 
+  const gridFont = activePuzzle.gridFont || "Modern Sans";
+  const titleFont = activePuzzle.titleFont || "Modern Sans";
+  const cellBordersSetting = activePuzzle.cellBorders || false;
+  const ideThemeSetting = activePuzzle.ideTheme || false;
+  const letterTrackingSetting = activePuzzle.letterTracking ?? 0;
+  const wordBankColumnsSetting = activePuzzle.wordBankColumns || 3;
+  const selectorStyleSetting = activePuzzle.selectorStyle || "Clean Text (No Bullets)";
+  const solutionStyleSetting = activePuzzle.solutionStyle || "Greyscale Mute";
+
+  const gridFontFamily = fontStyleMap[gridFont];
+  const titleFontFamily = fontStyleMap[titleFont];
+
   // Sizing calculations to fit the container
   const gap = isSudoku || isCrossword ? 0 : (cols > 20 || rows > 20 ? 2 : 4);
   const containerW = dimensions.width;
@@ -161,7 +206,12 @@ export function Preview() {
       {/* Header Panel */}
       <div className="p-6 pb-2 max-w-7xl mx-auto w-full flex justify-between items-end flex-shrink-0">
         <div>
-          <h1 className="text-3xl font-black text-slate-800 leading-none">{activePuzzle.title}</h1>
+          <h1 
+            className="text-3xl font-black text-slate-800 leading-none"
+            style={{ fontFamily: fontStyleMap[activePuzzle.titleFont || "Modern Sans"] }}
+          >
+            {formatTitle(activePuzzle.title, activePuzzle.themeAccents)}
+          </h1>
           <p className="text-slate-500 mt-2 font-medium">
             {isSudoku ? "Sudoku • 9 x 9 Grid" : isCrossword ? `Crossword • ${cols} x ${rows} Grid` : `${cols} x ${rows} Grid`}
           </p>
@@ -227,20 +277,29 @@ export function Preview() {
           className="flex-1 min-h-0 bg-white p-6 rounded-2xl shadow-xl border border-slate-200 flex items-center justify-center overflow-hidden"
         >
           <div 
-            className="relative"
+            className={`relative ${ideThemeSetting ? "border-2 border-slate-700 bg-slate-900 rounded-xl p-4 pt-10 shadow-2xl" : ""}`}
             style={{
-              width: `${gridWidth}px`,
-              height: `${gridHeight}px`,
+              width: ideThemeSetting ? `${gridWidth + 32}px` : `${gridWidth}px`,
+              height: ideThemeSetting ? `${gridHeight + 56}px` : `${gridHeight}px`,
             }}
           >
+            {ideThemeSetting && (
+              <div className="absolute top-3.5 left-4 flex gap-1.5 pointer-events-none select-none">
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-500 border border-rose-600"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500 border border-amber-600"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-emerald-600"></div>
+              </div>
+            )}
             <div 
-              className="grid font-mono font-bold text-slate-700 select-none"
+              className="grid select-none"
               style={{ 
+                fontFamily: gridFontFamily,
                 gridTemplateColumns: `repeat(${cols || 1}, minmax(0, 1fr))`,
                 gap: `${gap}px`,
                 width: `${gridWidth}px`,
                 height: `${gridHeight}px`,
-                border: isSudoku || isCrossword ? "3px solid #334155" : "none"
+                border: isSudoku || isCrossword ? "3px solid #334155" : "none",
+                margin: ideThemeSetting ? "0 auto" : "0"
               }}
             >
               {activePuzzle.grid.map((row, y) => (
@@ -275,6 +334,10 @@ export function Preview() {
                     cellBorders = `${topBorder} ${leftBorder} ${bottomBorder} ${rightBorder}`;
                   } else if (isCrossword) {
                     cellBorders = "border border-slate-300";
+                  } else {
+                    cellBorders = cellBordersSetting
+                      ? (ideThemeSetting ? "border border-slate-750" : "border border-slate-200")
+                      : "";
                   }
 
                   // Find clue starting at y, x for crossword numbering
@@ -282,10 +345,32 @@ export function Preview() {
                     ? activePuzzle.specific_data.clues?.find((c: any) => c.row === y && c.col === x)
                     : null;
 
+                  let charClass = "text-slate-700 font-bold font-semibold";
+                  if (!isSudoku && !isCrossword) {
+                    if (showSolutions) {
+                      const inSol = isCellInSolution(x, y, activePuzzle.specific_data.solutions);
+                      if (solutionStyleSetting === "Greyscale Mute") {
+                        if (inSol) {
+                          charClass = ideThemeSetting
+                            ? "text-emerald-400 font-black"
+                            : "text-indigo-650 font-black bg-indigo-50/40 rounded";
+                        } else {
+                          charClass = ideThemeSetting
+                            ? "text-slate-600 opacity-30"
+                            : "text-slate-350 opacity-35";
+                        }
+                      } else {
+                        charClass = ideThemeSetting ? "text-slate-100 font-bold" : "text-slate-700 font-bold";
+                      }
+                    } else {
+                      charClass = ideThemeSetting ? "text-slate-100 font-bold" : "text-slate-700 font-bold";
+                    }
+                  }
+
                   return (
                     <div 
                       key={`${x}-${y}`} 
-                      className={`relative flex items-center justify-center cursor-default ${cellBorders} ${
+                      className={`relative flex items-center justify-center cursor-default ${cellBorders} ${charClass} ${
                         isSudoku 
                           ? isSolutionValue 
                             ? "text-indigo-600 bg-indigo-50/40" 
@@ -302,6 +387,8 @@ export function Preview() {
                         width: `${cellSize}px`,
                         height: `${cellSize}px`,
                         fontSize: `${fontSize}px`,
+                        letterSpacing: `${letterTrackingSetting}px`,
+                        textIndent: `${letterTrackingSetting}px`
                       }}
                     >
                       {isCrossword && crosswordClue && (
@@ -322,7 +409,11 @@ export function Preview() {
             {!isSudoku && !isCrossword && showSolutions && (
               <svg 
                 className="absolute inset-0 pointer-events-none w-full h-full"
-                style={{ overflow: "visible" }}
+                style={{ 
+                  overflow: "visible",
+                  left: ideThemeSetting ? "16px" : "0px",
+                  top: ideThemeSetting ? "40px" : "0px"
+                }}
                 viewBox={`0 0 ${gridWidth} ${gridHeight}`}
               >
                 {activePuzzle.specific_data.solutions.map((sol: any, index: number) => {
@@ -359,22 +450,24 @@ export function Preview() {
                         transform={`rotate(${angle}, ${x1}, ${y1})`}
                         fill="transparent"
                       />
-                      <rect
-                        x={x1 - hRadius}
-                        y={y1 - hRadius}
-                        width={L + hHeight}
-                        height={hHeight}
-                        rx={hRadius}
-                        ry={hRadius}
-                        transform={`rotate(${angle}, ${x1}, ${y1})`}
-                        stroke="#ef4444"
-                        strokeWidth={isHovered ? cellSize * 0.11 : cellSize * 0.08}
-                        fill={isHovered ? "rgba(239, 68, 68, 0.18)" : "rgba(239, 68, 68, 0.08)"}
-                        className="transition-all duration-200 ease-in-out"
-                        style={{
-                          opacity: isAnyHovered && !isHovered ? 0.35 : 1,
-                        }}
-                      />
+                      {(solutionStyleSetting === "Pill Outlines" || isHovered) && (
+                        <rect
+                          x={x1 - hRadius}
+                          y={y1 - hRadius}
+                          width={L + hHeight}
+                          height={hHeight}
+                          rx={hRadius}
+                          ry={hRadius}
+                          transform={`rotate(${angle}, ${x1}, ${y1})`}
+                          stroke={isHovered ? "#ef4444" : "#f43f5e"}
+                          strokeWidth={isHovered ? cellSize * 0.11 : cellSize * 0.08}
+                          fill="none"
+                          className="transition-all duration-200 ease-in-out"
+                          style={{
+                            opacity: isAnyHovered && !isHovered ? 0.35 : 1,
+                          }}
+                        />
+                      )}
                     </g>
                   );
                 })}
@@ -385,28 +478,38 @@ export function Preview() {
 
         {/* Word Bank Container (Word Search) */}
         {activePuzzle.puzzle_type === "WordSearch" && (
-          <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex-shrink-0 max-h-[30%] overflow-y-auto">
+          <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex-shrink-0 max-h-[30%] overflow-y-auto text-left">
             <h3 className="font-bold text-slate-800 mb-3 text-base border-b pb-1.5 flex items-center justify-between">
-              <span>Word Bank</span>
+              <span style={{ fontFamily: titleFontFamily }}>Word Bank</span>
               <span className="text-xs text-slate-400 font-normal">
                 {activePuzzle.specific_data.word_bank.length - activePuzzle.specific_data.unplaced_words.length} / {activePuzzle.specific_data.word_bank.length} Placed
               </span>
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div 
+              className="grid gap-x-4 gap-y-2"
+              style={{ 
+                gridTemplateColumns: `repeat(${wordBankColumnsSetting}, minmax(0, 1fr))`,
+                fontFamily: titleFontFamily
+              }}
+            >
               {activePuzzle.specific_data.word_bank.map((word: string, i: number) => {
                 const unplaced = activePuzzle.specific_data.unplaced_words.includes(word);
                 const upperWord = word.toUpperCase();
                 const isHovered = hoveredWord === upperWord;
                 const isAnyHovered = hoveredWord !== null;
 
+                let prefix = "";
+                if (selectorStyleSetting === "Classic Bullet Points") {
+                  prefix = "• ";
+                } else if (selectorStyleSetting === "Checkbox [ ] Style") {
+                  prefix = "[ ] ";
+                }
+
                 let wordBankFontSize = "text-sm";
-                let wordBankPadding = "px-3 py-1.5";
                 if (cellSize < 16) {
                   wordBankFontSize = "text-[10px]";
-                  wordBankPadding = "px-1.5 py-0.5";
                 } else if (cellSize < 24) {
                   wordBankFontSize = "text-xs";
-                  wordBankPadding = "px-2.5 py-1";
                 }
 
                 return (
@@ -414,21 +517,21 @@ export function Preview() {
                     key={i} 
                     onMouseEnter={() => setHoveredWord(upperWord)}
                     onMouseLeave={() => setHoveredWord(null)}
-                    className={`rounded-full font-semibold tracking-wide flex items-center gap-1.5 cursor-pointer transition-all duration-200 border ${wordBankFontSize} ${wordBankPadding} ${
+                    className={`font-semibold tracking-wide flex items-center gap-1.5 cursor-pointer transition-all duration-200 ${wordBankFontSize} ${
                       unplaced 
                         ? isHovered
-                          ? "bg-red-200 text-red-800 border-red-300 scale-105 shadow-md shadow-red-100"
-                          : "bg-red-100 text-red-700 border-red-200" 
+                          ? "text-rose-600 scale-105"
+                          : "text-rose-500" 
                         : isHovered
-                          ? "bg-emerald-200 text-emerald-900 border-emerald-300 scale-105 shadow-md shadow-emerald-100"
-                          : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                          ? "text-emerald-700 scale-105"
+                          : "text-slate-700"
                     }`}
                     style={{
                       opacity: isAnyHovered && !isHovered ? 0.4 : 1,
                     }}
                   >
                     {unplaced && <AlertCircle size={cellSize < 16 ? 10 : 14} />}
-                    {word}
+                    {prefix}{word}
                   </span>
                 );
               })}

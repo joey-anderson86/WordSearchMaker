@@ -50,6 +50,16 @@ export interface PuzzlePayload<T = any> {
     title: string;
     grid: (string | number | null)[][];
     specific_data: T;
+    // Styling & Typography Customization
+    gridFont?: "Modern Sans" | "Display Geometric" | "Developer Mono";
+    titleFont?: "Modern Sans" | "Display Geometric" | "Developer Mono";
+    themeAccents?: boolean;
+    cellBorders?: boolean;
+    ideTheme?: boolean;
+    letterTracking?: number;
+    wordBankColumns?: number;
+    selectorStyle?: "Clean Text (No Bullets)" | "Checkbox [ ] Style" | "Classic Bullet Points";
+    solutionStyle?: "Greyscale Mute" | "Pill Outlines";
 }
 
 interface AppState {
