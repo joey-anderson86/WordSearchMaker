@@ -3,23 +3,23 @@ import { PuzzlePayload, WordSearchData } from "../store";
 
 Font.register({
   family: 'Montserrat',
-  src: 'https://fonts.gstatic.com/s/montserrat/v25/JTUSjIg1_i6t8kCHKm459Wlhyw.ttf'
+  src: '/fonts/montserrat.ttf'
 });
 Font.register({
   family: 'Inter',
-  src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50Knly2w.ttf'
+  src: '/fonts/inter.ttf'
 });
 Font.register({
   family: 'Oswald',
-  src: 'https://fonts.gstatic.com/s/oswald/v49/TK3iWkUHHAI4Tcf4lbT7uM7B.ttf'
+  src: '/fonts/oswald.ttf'
 });
 Font.register({
   family: 'JetBrains Mono',
-  src: 'https://fonts.gstatic.com/s/jetbrainsmono/v18/tU3oV06n-9GS-vpp148vLa1v70__rOHzpYvcuC7b8Q.ttf'
+  src: '/fonts/jetbrains-mono.ttf'
 });
 Font.register({
   family: 'Fira Code',
-  src: 'https://fonts.gstatic.com/s/firacode/v21/uDN75Zae4g6vMjUd6HLX23Zf4WZNPnJ7171R8-t6.ttf'
+  src: '/fonts/fira-code.ttf'
 });
 
 const fontStyleMap: Record<string, string> = {
