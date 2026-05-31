@@ -38,10 +38,12 @@ export function Sidebar() {
   const pageSize = useStore((state) => state.pageSize);
   const bookTitle = useStore((state) => state.bookTitle);
   const includeSolutions = useStore((state) => state.includeSolutions);
+  const defaultMargins = useStore((state) => state.defaultMargins);
 
   const setBookTitle = useStore((state) => state.setBookTitle);
   const setPageSize = useStore((state) => state.setPageSize);
   const setIncludeSolutions = useStore((state) => state.setIncludeSolutions);
+  const setDefaultMargins = useStore((state) => state.setDefaultMargins);
   const setSelectedPuzzleId = useStore((state) => state.setSelectedPuzzleId);
   const addPuzzle = useStore((state) => state.addPuzzle);
   const updatePuzzle = useStore((state) => state.updatePuzzle);
@@ -62,7 +64,6 @@ export function Sidebar() {
   // States for adding new custom crossword clues
   const [newCwWord, setNewCwWord] = useState("");
   const [newCwClue, setNewCwClue] = useState("");
-  const [isAdvOpen, setIsAdvOpen] = useState(false);
 
   const selectedPuzzle = puzzles.find((p) => p.id === selectedPuzzleId);
 
@@ -146,14 +147,6 @@ export function Sidebar() {
     }
   };
 
-  const updateStyleSetting = (key: string, value: any) => {
-    if (selectedPuzzle) {
-      updatePuzzle(selectedPuzzle.id, {
-        ...selectedPuzzle,
-        [key]: value
-      });
-    }
-  };
 
   const handleSudokuDifficultyChange = async (difficulty: "easy" | "medium" | "hard" | "expert") => {
     if (!selectedPuzzle || selectedPuzzle.specificData.type !== "Sudoku") return;
@@ -416,6 +409,49 @@ export function Sidebar() {
             <label htmlFor="include-solutions" className="text-xs font-semibold text-slate-300 cursor-pointer select-none">
               Include Solutions Section at End
             </label>
+          </div>
+
+          <div className="flex flex-col gap-1.5 mt-2 p-2.5 bg-slate-800/30 border border-slate-750/50 rounded-lg">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Default Margins (pt)</label>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] text-slate-500 font-semibold">Top</label>
+                <input
+                  type="number"
+                  value={defaultMargins?.top ?? 40}
+                  onChange={(e) => setDefaultMargins({ ...defaultMargins, top: parseFloat(e.target.value) || 0 })}
+                  className="bg-slate-855 border border-slate-700/80 rounded p-1 text-slate-200 outline-none font-mono"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] text-slate-500 font-semibold">Bottom</label>
+                <input
+                  type="number"
+                  value={defaultMargins?.bottom ?? 50}
+                  onChange={(e) => setDefaultMargins({ ...defaultMargins, bottom: parseFloat(e.target.value) || 0 })}
+                  className="bg-slate-855 border border-slate-700/80 rounded p-1 text-slate-200 outline-none font-mono"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] text-slate-500 font-semibold">Left</label>
+                <input
+                  type="number"
+                  value={defaultMargins?.left ?? 40}
+                  onChange={(e) => setDefaultMargins({ ...defaultMargins, left: parseFloat(e.target.value) || 0 })}
+                  className="bg-slate-855 border border-slate-700/80 rounded p-1 text-slate-200 outline-none font-mono"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] text-slate-500 font-semibold">Right</label>
+                <input
+                  type="number"
+                  value={defaultMargins?.right ?? 40}
+                  onChange={(e) => setDefaultMargins({ ...defaultMargins, right: parseFloat(e.target.value) || 0 })}
+                  className="bg-slate-855 border border-slate-700/80 rounded p-1 text-slate-200 outline-none font-mono"
+                />
+              </div>
+            </div>
+            <span className="text-[9px] text-slate-500 mt-0.5 leading-tight">These will apply to all newly generated pages.</span>
           </div>
 
           {/* Import from JSON Button */}
@@ -768,164 +804,10 @@ export function Sidebar() {
                     ></textarea>
                   </div>
 
-                  {/* Collapsible Advanced Typography & Layout */}
-                  <div className="border border-slate-800 rounded-lg overflow-hidden mt-1 bg-slate-950/40">
-                    <button
-                      type="button"
-                      onClick={() => setIsAdvOpen(!isAdvOpen)}
-                      className="w-full flex items-center justify-between p-2 text-[11px] font-bold text-slate-350 hover:bg-slate-800/50 transition-all cursor-pointer border-none"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        🎨 Advanced Page Typography & Layout
-                      </span>
-                      <span className={`transform transition-transform duration-205 text-slate-500 font-bold ${isAdvOpen ? "rotate-90" : ""}`}>
-                        ▶
-                      </span>
-                    </button>
-                    {isAdvOpen && (
-                      <div className="p-3 border-t border-slate-850 flex flex-col gap-3.5 bg-slate-900/40 text-left">
-                        {/* Typography Control */}
-                        <div className="flex flex-col gap-2">
-                          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Typography Control</span>
-                          
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] text-slate-400">Grid Font</label>
-                            <select
-                              value={selectedPuzzle.gridFont || "Modern Sans"}
-                              onChange={(e) => updateStyleSetting("gridFont", e.target.value)}
-                              className="bg-slate-800 border border-slate-750 rounded p-1 text-[11px] outline-none text-slate-200 cursor-pointer"
-                            >
-                              <option value="Modern Sans">Modern Sans (Montserrat, Inter)</option>
-                              <option value="Display Geometric">Display Geometric (Oswald, Futura)</option>
-                              <option value="Developer Mono">Developer Mono (JetBrains Mono, Fira Code)</option>
-                            </select>
-                          </div>
-
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] text-slate-400">Title & Word Bank Font</label>
-                            <select
-                              value={selectedPuzzle.titleFont || "Modern Sans"}
-                              onChange={(e) => updateStyleSetting("titleFont", e.target.value)}
-                              className="bg-slate-800 border border-slate-750 rounded p-1 text-[11px] outline-none text-slate-200 cursor-pointer"
-                            >
-                              <option value="Modern Sans">Modern Sans (Montserrat, Inter)</option>
-                              <option value="Display Geometric">Display Geometric (Oswald, Futura)</option>
-                              <option value="Developer Mono">Developer Mono (JetBrains Mono, Fira Code)</option>
-                            </select>
-                          </div>
-
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <input
-                              type="checkbox"
-                              id="theme-accents"
-                              checked={selectedPuzzle.themeAccents || false}
-                              onChange={(e) => updateStyleSetting("themeAccents", e.target.checked)}
-                              className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 focus:ring-offset-slate-900 bg-slate-800 border-slate-700 accent-emerald-500 cursor-pointer"
-                            />
-                            <label htmlFor="theme-accents" className="text-[10px] font-semibold text-slate-350 cursor-pointer select-none">
-                              Toggle "Theme Accents"
-                            </label>
-                          </div>
-                        </div>
-
-                        {/* Grid Styling */}
-                        <div className="flex flex-col gap-2 border-t border-slate-850 pt-2.5">
-                          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Grid Styling</span>
-
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id="cell-borders"
-                              checked={selectedPuzzle.cellBorders || false}
-                              onChange={(e) => updateStyleSetting("cellBorders", e.target.checked)}
-                              className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 focus:ring-offset-slate-900 bg-slate-800 border-slate-700 accent-emerald-500 cursor-pointer"
-                            />
-                            <label htmlFor="cell-borders" className="text-[10px] font-semibold text-slate-350 cursor-pointer select-none">
-                              Cell Borders (Grid Lines)
-                            </label>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id="ide-theme"
-                              checked={selectedPuzzle.ideTheme || false}
-                              onChange={(e) => updateStyleSetting("ideTheme", e.target.checked)}
-                              className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 focus:ring-offset-slate-900 bg-slate-800 border-slate-700 accent-emerald-500 cursor-pointer"
-                            />
-                            <label htmlFor="ide-theme" className="text-[10px] font-semibold text-slate-350 cursor-pointer select-none">
-                              IDE Theme Container
-                            </label>
-                          </div>
-
-                          <div className="flex flex-col gap-1">
-                            <div className="flex justify-between items-center text-[10px] text-slate-400">
-                              <span>Letter Tracking</span>
-                              <span className="text-emerald-400 font-mono font-bold">{(selectedPuzzle.letterTracking ?? 0)}px</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0"
-                              max="8"
-                              step="0.5"
-                              value={selectedPuzzle.letterTracking ?? 0}
-                              onChange={(e) => updateStyleSetting("letterTracking", parseFloat(e.target.value))}
-                              className="accent-emerald-500 cursor-pointer h-1 bg-slate-800 rounded-lg appearance-none"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Word Bank Layout */}
-                        <div className="flex flex-col gap-2 border-t border-slate-850 pt-2.5">
-                          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Word Bank Layout</span>
-
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] text-slate-400">Columns Selector</label>
-                            <select
-                              value={selectedPuzzle.wordBankColumns || 3}
-                              onChange={(e) => updateStyleSetting("wordBankColumns", parseInt(e.target.value))}
-                              className="bg-slate-800 border border-slate-750 rounded p-1 text-[11px] outline-none text-slate-200 cursor-pointer"
-                            >
-                              <option value="2">2 Columns</option>
-                              <option value="3">3 Columns</option>
-                              <option value="4">4 Columns</option>
-                            </select>
-                          </div>
-
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] text-slate-400">Selector Style</label>
-                            <select
-                              value={selectedPuzzle.selectorStyle || "Clean Text (No Bullets)"}
-                              onChange={(e) => updateStyleSetting("selectorStyle", e.target.value)}
-                              className="bg-slate-800 border border-slate-750 rounded p-1 text-[11px] outline-none text-slate-200 cursor-pointer"
-                            >
-                              <option value="Clean Text (No Bullets)">Clean Text (No Bullets)</option>
-                              <option value="Checkbox [ ] Style">Checkbox [ ] Style</option>
-                              <option value="Classic Bullet Points">Classic Bullet Points</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Solutions Customization */}
-                        <div className="flex flex-col gap-2 border-t border-slate-850 pt-2.5">
-                          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Solution View Style</span>
-                          <select
-                            value={selectedPuzzle.solutionStyle || "Greyscale Mute"}
-                            onChange={(e) => updateStyleSetting("solutionStyle", e.target.value)}
-                            className="bg-slate-800 border border-slate-750 rounded p-1 text-[11px] outline-none text-slate-200 cursor-pointer"
-                          >
-                            <option value="Greyscale Mute">Greyscale Mute (Dim Filler Letters)</option>
-                            <option value="Pill Outlines">Pill Outlines (Uniform Capsule)</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
                   <button
                     onClick={handleRegenerate}
                     disabled={isGenerating}
-                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-xs font-bold py-2 px-3 rounded shadow-md transition-all flex justify-center items-center gap-1.5 active:scale-95 cursor-pointer"
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-xs font-bold py-2 px-3 rounded shadow-md transition-all flex justify-center items-center gap-1.5 active:scale-95 cursor-pointer mt-2"
                   >
                     <Sparkles size={14} className={isGenerating ? "animate-spin" : ""} />
                     {isGenerating ? "Generating..." : "Regenerate Grid"}

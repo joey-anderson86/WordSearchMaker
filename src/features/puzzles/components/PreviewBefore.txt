@@ -1,0 +1,75 @@
+import { useState, useEffect, useRef } from "react";
+import { useStore } from "../../../store";
+import { save } from "@tauri-apps/plugin-dialog";
+import { Download, AlertCircle, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
+import { pdf } from "@react-pdf/renderer";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import { PdfDocument } from "../../pdf/components/PdfDocument";
+
+const fontStyleMap: Record<string, string> = {
+  "Modern Sans": "'Montserrat', 'Inter', sans-serif",
+  "Display Geometric": "'Oswald', sans-serif",
+  "Developer Mono": "'JetBrains Mono', 'Fira Code', monospace"
+};
+
+const formatTitle = (title: string, themeAccents?: boolean) => {
+  if (!themeAccents) return title;
+  const match = title.match(/^(Puzzle \d+:\s*)(.*)$/);
+  if (match) {
+    const prefix = match[1];
+    const rest = match[2];
+    const tag = rest.replace(/[^a-zA-Z0-9]/g, "");
+    return `${prefix}<${tag} />`;
+  }
+  return `<${title.replace(/[^a-zA-Z0-9]/g, "")} />`;
+};
+
+const isCellInSolution = (x: number, y: number, solutions: any[]) => {
+  if (!solutions) return false;
+  return solutions.some((sol) => {
+    const dx = Math.sign(sol.end_x - sol.start_x);
+    const dy = Math.sign(sol.end_y - sol.start_y);
+    const len = Math.max(Math.abs(sol.end_x - sol.start_x), Math.abs(sol.end_y - sol.start_y)) + 1;
+    for (let i = 0; i < len; i++) {
+      if (sol.start_x + i * dx === x && sol.start_y + i * dy === y) {
+        return true;
+      }
+    }
+    return false;
+  });
+};
+
+export function Preview() {
+  const puzzles = useStore((state) => state.puzzles);
+  const selectedPuzzleId = useStore((state) => state.selectedPuzzleId);
+  const setSelectedPuzzleId = useStore((state) => state.setSelectedPuzzleId);
+  const pageSize = useStore((state) => state.pageSize);
+  const bookTitle = useStore((state) => state.bookTitle);
+  const includeSolutions = useStore((state) => state.includeSolutions);
+
+  const [showSolutions, setShowSolutions] = useState(true);
+  const [hoveredWord, setHoveredWord] = useState<string | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 600, height: 500 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      if (!entries || entries.length === 0) return;
+      const { width, height } = entries[0].contentRect;
+      setDimensions({ width, height });
+    });
+
+    observer.observe(containerRef.current);
+
+    // Initial measurement
+    const rect = containerRef.current.getBoundingClientRect();
+    // Padding is p-6 (24px each side) -> 48px total to subtract
+    setDimensions({
+      width: Math.max(100, rect.width - 48),
+      height: Math.max(100, rect.height - 48),
+    });
+
+  
