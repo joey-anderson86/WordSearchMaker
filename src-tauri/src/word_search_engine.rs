@@ -1,4 +1,4 @@
-use crate::models::{PuzzlePayload, PuzzleType, WordPlacement, WordSearchData};
+use crate::models::{PuzzlePayload, PuzzleSpecificData, WordPlacement, WordSearchData};
 use rand::{seq::SliceRandom, thread_rng, Rng};
 use uuid::Uuid;
 
@@ -6,7 +6,7 @@ pub fn generate_word_search(
     width: usize,
     height: usize,
     words: Vec<String>,
-) -> PuzzlePayload<WordSearchData> {
+) -> PuzzlePayload {
     let mut grid: Vec<Vec<char>> = vec![vec![' '; width]; height];
 
     let mut sorted_words = words.clone();
@@ -104,18 +104,26 @@ pub fn generate_word_search(
 
     let final_grid = grid
         .into_iter()
-        .map(|row| row.into_iter().map(|c| c.to_string()).collect())
+        .map(|row| row.into_iter().map(|c| serde_json::json!(c.to_string())).collect())
         .collect();
 
     PuzzlePayload {
         id: Uuid::new_v4().to_string(),
-        puzzle_type: PuzzleType::WordSearch,
         title: "Word Search".to_string(),
         grid: final_grid,
-        specific_data: WordSearchData {
+        specific_data: PuzzleSpecificData::WordSearch(WordSearchData {
             word_bank: words,
             unplaced_words,
             solutions,
-        },
+        }),
+        grid_font: None,
+        title_font: None,
+        theme_accents: None,
+        cell_borders: None,
+        ide_theme: None,
+        letter_tracking: None,
+        word_bank_columns: None,
+        selector_style: None,
+        solution_style: None,
     }
 }

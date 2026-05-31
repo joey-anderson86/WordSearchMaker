@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useStore, PuzzlePayload, WordSearchData, SudokuData, CrosswordData, PuzzlePayloadType } from "../store";
+import { useStore } from "../../../store";
+import type { PuzzlePayload } from "../../../types/generated/PuzzlePayload";
+export type PuzzlePayloadType = "WordSearch" | "Sudoku" | "Crossword";
 import { 
   Settings, 
   FileText, 
@@ -18,8 +20,8 @@ import {
   AlertTriangle,
   Loader2
 } from "lucide-react";
-import { importBookFromJson, ImportValidationError } from "../utils/importJson";
-import { downloadTemplate } from "../utils/templateGenerator";
+import { importBookFromJson, ImportValidationError } from "../../../utils/importJson";
+import { downloadTemplate } from "../../../utils/templateGenerator";
 
 const defaultThemes = [
   { name: "Programming", words: "RUST\nTAURI\nREACT\nTYPESCRIPT\nZUSTAND" },
@@ -70,8 +72,8 @@ export function Sidebar() {
       setEditTitle(selectedPuzzle.title);
       setEditWidth(selectedPuzzle.grid[0]?.length || 15);
       setEditHeight(selectedPuzzle.grid.length || 15);
-      if (selectedPuzzle.puzzle_type === "WordSearch") {
-        setEditWords(selectedPuzzle.specific_data.word_bank.join("\n"));
+      if (selectedPuzzle.specificData.type === "WordSearch") {
+        setEditWords((selectedPuzzle.specificData.data as any).word_bank.join("\n"));
       } else {
         setEditWords("");
       }
@@ -89,36 +91,25 @@ export function Sidebar() {
     setIsGenerating(true);
     try {
       if (selectedTypeToCreate === "Sudoku") {
-        const { generateSudoku } = await import("../puzzles/sudokuGenerator");
+        const { generateSudoku } = await import("../../../puzzles/sudokuGenerator");
         const { grid, solution } = generateSudoku("easy");
 
-        const newPuzzle: PuzzlePayload<SudokuData> = {
+        const newPuzzle: PuzzlePayload = {
           id: `sudoku-${Date.now()}`,
-          puzzle_type: "Sudoku",
           title: `Puzzle ${puzzles.length + 1}: Sudoku (Easy)`,
           grid: grid,
-          specific_data: {
-            difficulty: "easy",
-            solution: solution
-          }
+          specificData: { type: "Sudoku", data: { difficulty: "easy", solution: solution } }
         };
         addPuzzle(newPuzzle);
       } else if (selectedTypeToCreate === "Crossword") {
-        const { layoutCrossword, DEFAULT_CROSSWORD_INPUTS } = await import("../puzzles/crosswordGenerator");
+        const { layoutCrossword, DEFAULT_CROSSWORD_INPUTS } = await import("../../../puzzles/crosswordGenerator");
         const { grid, solution, clues, unplaced } = layoutCrossword(DEFAULT_CROSSWORD_INPUTS, 11, 11);
 
-        const newPuzzle: PuzzlePayload<CrosswordData> = {
+        const newPuzzle: PuzzlePayload = {
           id: `crossword-${Date.now()}`,
-          puzzle_type: "Crossword",
           title: `Puzzle ${puzzles.length + 1}: Crossword Grid`,
           grid: grid,
-          specific_data: {
-            difficulty: "easy",
-            solution: solution,
-            clues: clues,
-            word_bank: DEFAULT_CROSSWORD_INPUTS.map(c => ({ ...c })),
-            unplaced_words: unplaced
-          }
+          specificData: { type: "Crossword", data: { difficulty: "easy", solution: solution, clues: clues, word_bank: DEFAULT_CROSSWORD_INPUTS.map(c => ({ ...c })), unplaced_words: unplaced } }
         };
         addPuzzle(newPuzzle);
       } else {
@@ -129,7 +120,7 @@ export function Sidebar() {
           .map((w) => w.trim())
           .filter((w) => w.length > 0);
 
-        const result: PuzzlePayload<WordSearchData> = await invoke("generate_puzzle", {
+        const result: PuzzlePayload = await invoke("generate_puzzle", {
           width: 15,
           height: 15,
           words: wordList,
@@ -165,20 +156,17 @@ export function Sidebar() {
   };
 
   const handleSudokuDifficultyChange = async (difficulty: "easy" | "medium" | "hard" | "expert") => {
-    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Sudoku") return;
+    if (!selectedPuzzle || selectedPuzzle.specificData.type !== "Sudoku") return;
     setIsGenerating(true);
     try {
-      const { generateSudoku } = await import("../puzzles/sudokuGenerator");
+      const { generateSudoku } = await import("../../../puzzles/sudokuGenerator");
       const { grid, solution } = generateSudoku(difficulty);
 
-      const updatedPuzzle: PuzzlePayload<SudokuData> = {
+      const updatedPuzzle: PuzzlePayload = {
         ...selectedPuzzle,
         title: `Puzzle ${puzzles.indexOf(selectedPuzzle) + 1}: Sudoku (${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)})`,
         grid: grid,
-        specific_data: {
-          difficulty,
-          solution
-        }
+        specificData: { type: "Sudoku", data: { difficulty, solution } }
       };
       updatePuzzle(selectedPuzzle.id, updatedPuzzle);
       setEditTitle(updatedPuzzle.title);
@@ -190,32 +178,27 @@ export function Sidebar() {
   };
 
   const handleRegenerateSudoku = () => {
-    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Sudoku") return;
-    const diff = selectedPuzzle.specific_data.difficulty || "easy";
+    if (!selectedPuzzle || selectedPuzzle.specificData.type !== "Sudoku") return;
+    const diff = (selectedPuzzle.specificData.data as any).difficulty || "easy";
     handleSudokuDifficultyChange(diff);
   };
 
   const handleRegenerateCrossword = async () => {
-    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Crossword") return;
+    if (!selectedPuzzle || selectedPuzzle.specificData.type !== "Crossword") return;
     setIsGenerating(true);
     try {
-      const { layoutCrossword } = await import("../puzzles/crosswordGenerator");
+      const { layoutCrossword } = await import("../../../puzzles/crosswordGenerator");
       const { grid, solution, clues, unplaced } = layoutCrossword(
-        selectedPuzzle.specific_data.word_bank,
+        (selectedPuzzle.specificData.data as any).word_bank,
         editWidth,
         editHeight
       );
 
-      const updatedPuzzle: PuzzlePayload<CrosswordData> = {
+      const updatedPuzzle: PuzzlePayload = {
         ...selectedPuzzle,
         grid: grid,
         title: editTitle,
-        specific_data: {
-          ...selectedPuzzle.specific_data,
-          solution,
-          clues,
-          unplaced_words: unplaced
-        }
+        specificData: { ...selectedPuzzle.specificData, data: { ...(selectedPuzzle.specificData.data as any), solution, clues, unplaced_words: unplaced } }
       };
       updatePuzzle(selectedPuzzle.id, updatedPuzzle);
     } catch (e) {
@@ -227,7 +210,7 @@ export function Sidebar() {
   };
 
   const handleAddCwClue = () => {
-    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Crossword") return;
+    if (!selectedPuzzle || selectedPuzzle.specificData.type !== "Crossword") return;
     if (!newCwWord.trim() || !newCwClue.trim()) return;
 
     const newCluePair = {
@@ -240,9 +223,9 @@ export function Sidebar() {
       return;
     }
 
-    const updatedBank = [...selectedPuzzle.specific_data.word_bank, newCluePair];
+    const updatedBank = [...(selectedPuzzle.specificData.data as any).word_bank, newCluePair];
 
-    import("../puzzles/crosswordGenerator").then(({ layoutCrossword }) => {
+    import("../../../puzzles/crosswordGenerator").then(({ layoutCrossword }) => {
       const { grid, solution, clues, unplaced } = layoutCrossword(
         updatedBank,
         editWidth,
@@ -252,13 +235,7 @@ export function Sidebar() {
       updatePuzzle(selectedPuzzle.id, {
         ...selectedPuzzle,
         grid: grid,
-        specific_data: {
-          ...selectedPuzzle.specific_data,
-          word_bank: updatedBank,
-          solution,
-          clues,
-          unplaced_words: unplaced
-        }
+        specificData: { ...selectedPuzzle.specificData, data: { ...(selectedPuzzle.specificData.data as any), word_bank: updatedBank, solution, clues, unplaced_words: unplaced } }
       });
     });
 
@@ -267,11 +244,11 @@ export function Sidebar() {
   };
 
   const handleRemoveCwClue = (index: number) => {
-    if (!selectedPuzzle || selectedPuzzle.puzzle_type !== "Crossword") return;
+    if (!selectedPuzzle || selectedPuzzle.specificData.type !== "Crossword") return;
 
-    const updatedBank = selectedPuzzle.specific_data.word_bank.filter((_: any, idx: number) => idx !== index);
+    const updatedBank = (selectedPuzzle.specificData.data as any).word_bank.filter((_: any, idx: number) => idx !== index);
 
-    import("../puzzles/crosswordGenerator").then(({ layoutCrossword }) => {
+    import("../../../puzzles/crosswordGenerator").then(({ layoutCrossword }) => {
       const { grid, solution, clues, unplaced } = layoutCrossword(
         updatedBank,
         editWidth,
@@ -281,13 +258,7 @@ export function Sidebar() {
       updatePuzzle(selectedPuzzle.id, {
         ...selectedPuzzle,
         grid: grid,
-        specific_data: {
-          ...selectedPuzzle.specific_data,
-          word_bank: updatedBank,
-          solution,
-          clues,
-          unplaced_words: unplaced
-        }
+        specificData: { ...selectedPuzzle.specificData, data: { ...(selectedPuzzle.specificData.data as any), word_bank: updatedBank, solution, clues, unplaced_words: unplaced } }
       });
     });
   };
@@ -301,7 +272,7 @@ export function Sidebar() {
         .map((w) => w.trim())
         .filter((w) => w.length > 0);
 
-      const result: PuzzlePayload<WordSearchData> = await invoke("generate_puzzle", {
+      const result: PuzzlePayload = await invoke("generate_puzzle", {
         width: editWidth,
         height: editHeight,
         words: wordList,
@@ -364,7 +335,7 @@ export function Sidebar() {
         setImportProgress(`Generating page ${i + 1} of ${totalPages}: ${page.title}...`);
 
         try {
-          const result: PuzzlePayload<WordSearchData> = await invoke("generate_puzzle", {
+          const result: PuzzlePayload = await invoke("generate_puzzle", {
             width: page.gridWidth,
             height: page.gridHeight,
             words: page.words,
@@ -531,13 +502,13 @@ export function Sidebar() {
             const isSelected = p.id === selectedPuzzleId;
             const cols = p.grid[0]?.length || 0;
             const rows = p.grid.length || 0;
-            const isWordSearch = p.puzzle_type === "WordSearch";
-            const isCrossword = p.puzzle_type === "Crossword";
+            const isWordSearch = p.specificData.type === "WordSearch";
+            const isCrossword = p.specificData.type === "Crossword";
             const infoText = isWordSearch 
-              ? `${p.specific_data.word_bank.length} words`
+              ? `${(p.specificData.data as any).word_bank.length} words`
               : isCrossword
-                ? `${p.specific_data.clues.length} clues`
-                : `${p.specific_data.difficulty || "easy"}`;
+                ? `${(p.specificData.data as any).clues.length} clues`
+                : `${(p.specificData.data as any).difficulty || "easy"}`;
 
             return (
               <div
@@ -561,7 +532,7 @@ export function Sidebar() {
                     <span>•</span>
                     <span>{cols}x{rows}</span>
                     <span>•</span>
-                    <span className="text-[9px] text-emerald-500 font-semibold">{p.puzzle_type}</span>
+                    <span className="text-[9px] text-emerald-500 font-semibold">{p.specificData.type}</span>
                   </div>
                 </div>
 
@@ -614,7 +585,7 @@ export function Sidebar() {
             <div className="flex items-center gap-2 border-b border-slate-800/80 pb-1.5">
               <Settings className="text-emerald-400" size={16} />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Edit Page #{puzzles.findIndex((p) => p.id === selectedPuzzle.id) + 1} ({selectedPuzzle.puzzle_type})
+                Edit Page #{puzzles.findIndex((p) => p.id === selectedPuzzle.id) + 1} ({selectedPuzzle.specificData.type})
               </h3>
             </div>
 
@@ -629,14 +600,14 @@ export function Sidebar() {
                 />
               </div>
 
-              {selectedPuzzle.puzzle_type === "Sudoku" ? (
+              {selectedPuzzle.specificData.type === "Sudoku" ? (
                 /* Sudoku Editor Panel */
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] font-semibold text-slate-400">Difficulty</label>
                     <select
                       className="bg-slate-800 border border-slate-750 rounded p-1.5 text-xs focus:ring-1 focus:ring-emerald-500 outline-none text-slate-100"
-                      value={selectedPuzzle.specific_data.difficulty || "easy"}
+                      value={(selectedPuzzle.specificData.data as any).difficulty || "easy"}
                       onChange={(e) => handleSudokuDifficultyChange(e.target.value as any)}
                     >
                       <option value="easy">Easy</option>
@@ -660,7 +631,7 @@ export function Sidebar() {
                     {isGenerating ? "Regenerating..." : "Regenerate Sudoku"}
                   </button>
                 </div>
-              ) : selectedPuzzle.puzzle_type === "Crossword" ? (
+              ) : selectedPuzzle.specificData.type === "Crossword" ? (
                 /* Crossword Editor Panel */
                 <div className="flex flex-col gap-3">
                   {/* Grid Dimensions */}
@@ -697,9 +668,9 @@ export function Sidebar() {
 
                   {/* Word List Manager */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-semibold text-slate-400">Manage Clues ({selectedPuzzle.specific_data.word_bank.length})</label>
+                    <label className="text-[10px] font-semibold text-slate-400">Manage Clues ({(selectedPuzzle.specificData.data as any).word_bank.length})</label>
                     <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto bg-slate-900/60 p-2 rounded border border-slate-800/80">
-                      {selectedPuzzle.specific_data.word_bank.map((c: any, index: number) => (
+                      {(selectedPuzzle.specificData.data as any).word_bank.map((c: any, index: number) => (
                         <div key={index} className="flex justify-between items-start gap-1.5 bg-slate-800/60 p-1.5 rounded text-[11px] border border-slate-750">
                           <div className="flex flex-col gap-0.5 overflow-hidden">
                             <span className="font-extrabold text-emerald-400 tracking-wide truncate">{c.word}</span>

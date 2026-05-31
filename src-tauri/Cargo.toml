@@ -28,6 +28,7 @@ rand = "0.8"
 uuid = { version = "1.11.0", features = ["v4"] }
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
+thiserror = "2.0.18"
 
 
 

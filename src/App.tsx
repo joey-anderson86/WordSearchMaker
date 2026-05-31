@@ -1,5 +1,5 @@
-import { Sidebar } from "./components/Sidebar";
-import { Preview } from "./components/Preview";
+import { Sidebar } from "./features/puzzles/components/Sidebar";
+import { Preview } from "./features/puzzles/components/Preview";
 import "./App.css";
 
 function App() {

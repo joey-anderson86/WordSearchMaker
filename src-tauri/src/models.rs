@@ -2,32 +2,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, TS, Debug, Clone)]
-#[ts(export, export_to = "../src/types/PuzzleType.ts")]
-pub enum PuzzleType {
-    WordSearch,
-}
-
-#[derive(Serialize, Deserialize, TS, Debug, Clone)]
-#[ts(export, export_to = "../src/types/PuzzlePayload.ts")]
-#[ts(concrete(T = WordSearchData))]
-pub struct PuzzlePayload<T> {
-    pub id: String,
-    pub puzzle_type: PuzzleType,
-    pub title: String,
-    pub grid: Vec<Vec<String>>,
-    pub specific_data: T,
-}
-
-#[derive(Serialize, Deserialize, TS, Debug, Clone)]
-#[ts(export, export_to = "../src/types/WordSearchData.ts")]
-pub struct WordSearchData {
-    pub word_bank: Vec<String>,
-    pub unplaced_words: Vec<String>,
-    pub solutions: Vec<WordPlacement>,
-}
-
-#[derive(Serialize, Deserialize, TS, Debug, Clone)]
-#[ts(export, export_to = "../src/types/WordPlacement.ts")]
+#[ts(export, export_to = "../../src/types/generated/WordPlacement.ts")]
 pub struct WordPlacement {
     pub word: String,
     pub start_x: i32,
@@ -36,16 +11,110 @@ pub struct WordPlacement {
     pub end_y: i32,
 }
 
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[ts(export, export_to = "../../src/types/generated/WordSearchData.ts")]
+pub struct WordSearchData {
+    pub word_bank: Vec<String>,
+    pub unplaced_words: Vec<String>,
+    pub solutions: Vec<WordPlacement>,
+}
+
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[ts(export, export_to = "../../src/types/generated/SudokuData.ts")]
+pub struct SudokuData {
+    pub difficulty: String,
+    pub solution: Vec<Vec<i32>>,
+}
+
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[ts(export, export_to = "../../src/types/generated/CrosswordClue.ts")]
+pub struct CrosswordClue {
+    pub id: String,
+    pub number: i32,
+    pub direction: String,
+    pub row: i32,
+    pub col: i32,
+    pub clue: String,
+    pub answer: String,
+}
+
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[ts(export, export_to = "../../src/types/generated/CrosswordClueInput.ts")]
+pub struct CrosswordClueInput {
+    pub word: String,
+    pub clue: String,
+}
+
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[ts(export, export_to = "../../src/types/generated/CrosswordData.ts")]
+pub struct CrosswordData {
+    pub difficulty: String,
+    pub solution: Vec<Vec<String>>,
+    pub clues: Vec<CrosswordClue>,
+    pub word_bank: Vec<CrosswordClueInput>,
+    pub unplaced_words: Vec<CrosswordClueInput>,
+}
+
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[serde(tag = "type", content = "data")]
+#[ts(export, export_to = "../../src/types/generated/PuzzleSpecificData.ts")]
+pub enum PuzzleSpecificData {
+    WordSearch(WordSearchData),
+    Sudoku(SudokuData),
+    Crossword(CrosswordData),
+}
+
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/PuzzlePayload.ts")]
+pub struct PuzzlePayload {
+    pub id: String,
+    pub title: String,
+    #[ts(type = "(string | number | null)[][]")]
+    pub grid: Vec<Vec<serde_json::Value>>,
+    pub specific_data: PuzzleSpecificData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub grid_font: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub title_font: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub theme_accents: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub cell_borders: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub ide_theme: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub letter_tracking: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub word_bank_columns: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub selector_style: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub solution_style: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn export_bindings() {
-        // Run ts-rs export manually by calling export on each type
-        PuzzleType::export().expect("failed to export PuzzleType");
-        PuzzlePayload::<WordSearchData>::export().expect("failed to export PuzzlePayload");
-        WordSearchData::export().expect("failed to export WordSearchData");
         WordPlacement::export().expect("failed to export WordPlacement");
+        WordSearchData::export().expect("failed to export WordSearchData");
+        SudokuData::export().expect("failed to export SudokuData");
+        CrosswordClue::export().expect("failed to export CrosswordClue");
+        CrosswordClueInput::export().expect("failed to export CrosswordClueInput");
+        CrosswordData::export().expect("failed to export CrosswordData");
+        PuzzleSpecificData::export().expect("failed to export PuzzleSpecificData");
+        PuzzlePayload::export().expect("failed to export PuzzlePayload");
     }
 }

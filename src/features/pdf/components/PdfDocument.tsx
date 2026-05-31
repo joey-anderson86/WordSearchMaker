@@ -1,5 +1,5 @@
 import { Document, Page, View, Text, StyleSheet, Svg, Rect, Font } from "@react-pdf/renderer";
-import { PuzzlePayload, WordSearchData } from "../store";
+import type { PuzzlePayload } from "../../../types/generated/PuzzlePayload";
 
 Font.register({
   family: 'Montserrat',
@@ -56,7 +56,7 @@ const isCellInSolution = (x: number, y: number, solutions: any[]) => {
 };
 
 interface PdfDocumentProps {
-  puzzles: PuzzlePayload<any>[];
+  puzzles: PuzzlePayload[];
   pageSize: string;
   includeSolutions: boolean;
   isSinglePage?: boolean;
@@ -221,12 +221,12 @@ const styles = StyleSheet.create({
 });
 
 const renderWordSearchPage = (
-  puzzle: PuzzlePayload<WordSearchData>,
+  puzzle: PuzzlePayload,
   drawSolutions: boolean,
   pageSize: string
 ) => {
-  const { title, grid, specific_data } = puzzle;
-  const { word_bank, unplaced_words, solutions } = specific_data;
+  const { title, grid, specificData } = puzzle;
+  const { word_bank, unplaced_words, solutions } = specificData.type === "WordSearch" ? specificData.data : { word_bank: [], unplaced_words: [], solutions: [] };
 
   const cols = grid[0]?.length || 0;
   const rows = grid.length || 0;
@@ -461,12 +461,12 @@ const renderWordSearchPage = (
 };
 
 const renderSudokuPage = (
-  puzzle: PuzzlePayload<any>,
+  puzzle: PuzzlePayload,
   drawSolutions: boolean,
   pageSize: string
 ) => {
-  const { title, grid, specific_data } = puzzle;
-  const { difficulty, solution } = specific_data;
+  const { title, grid, specificData } = puzzle;
+  const { difficulty, solution } = specificData.type === "Sudoku" ? specificData.data : { difficulty: "easy", solution: [] };
 
   const cols = 9;
   const rows = 9;
@@ -574,12 +574,12 @@ const renderSudokuPage = (
 };
 
 const renderCrosswordPage = (
-  puzzle: PuzzlePayload<any>,
+  puzzle: PuzzlePayload,
   drawSolutions: boolean,
   pageSize: string
 ) => {
-  const { title, grid, specific_data } = puzzle;
-  const { difficulty, solution, clues } = specific_data;
+  const { title, grid, specificData } = puzzle;
+  const { difficulty, solution, clues, unplaced_words } = specificData.type === "Crossword" ? specificData.data : { difficulty: "easy", solution: [], clues: [], unplaced_words: [] };
 
   const cols = grid[0]?.length || 0;
   const rows = grid.length || 0;
@@ -723,7 +723,7 @@ const renderCrosswordPage = (
       </View>
 
       {/* Unplaced Clues */}
-      {specific_data.unplaced_words?.length > 0 && (
+      {unplaced_words?.length > 0 && (
         <View style={[styles.unplacedContainer, { marginTop: 10, padding: 6 }]}>
           <Text style={[styles.unplacedTitle, { fontSize: 8.5 }]}>
             Unplaced Clues (Could not fit in grid):
@@ -732,7 +732,7 @@ const renderCrosswordPage = (
             <View style={styles.unplacedRow}>
               <View style={styles.unplacedCell}>
                 <Text style={[styles.unplacedText, { fontSize: 7.5, lineHeight: 1.3 }]}>
-                  {specific_data.unplaced_words.map((c: any) => `${c.word}: ${c.clue}`).join("   |   ")}
+                  {unplaced_words.map((c: any) => `${c.word}: ${c.clue}`).join("   |   ")}
                 </Text>
               </View>
             </View>
@@ -760,9 +760,9 @@ export function PdfDocument({
     <Document>
       {/* 1. Puzzle Pages */}
       {puzzles.map((puzzle) =>
-        puzzle.puzzle_type === "Sudoku"
+        puzzle.specificData.type === "Sudoku"
           ? renderSudokuPage(puzzle, false, pageSize)
-          : puzzle.puzzle_type === "Crossword"
+          : puzzle.specificData.type === "Crossword"
             ? renderCrosswordPage(puzzle, false, pageSize)
             : renderWordSearchPage(puzzle, false, pageSize)
       )}
@@ -771,9 +771,9 @@ export function PdfDocument({
       {!isSinglePage &&
         includeSolutions &&
         puzzles.map((puzzle) =>
-          puzzle.puzzle_type === "Sudoku"
+          puzzle.specificData.type === "Sudoku"
             ? renderSudokuPage(puzzle, true, pageSize)
-            : puzzle.puzzle_type === "Crossword"
+            : puzzle.specificData.type === "Crossword"
               ? renderCrosswordPage(puzzle, true, pageSize)
               : renderWordSearchPage(puzzle, true, pageSize)
         )}

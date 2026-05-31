@@ -1,11 +1,13 @@
 pub mod models;
 pub mod word_search_engine;
+pub mod error;
 
-use models::{PuzzlePayload, WordSearchData};
+use error::AppError;
+use models::PuzzlePayload;
 
 #[tauri::command]
-fn generate_puzzle(width: usize, height: usize, words: Vec<String>) -> PuzzlePayload<WordSearchData> {
-    word_search_engine::generate_word_search(width, height, words)
+fn generate_puzzle(width: usize, height: usize, words: Vec<String>) -> Result<PuzzlePayload, AppError> {
+    Ok(word_search_engine::generate_word_search(width, height, words))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { useStore } from "../store";
+import { useStore } from "../../../store";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Download, AlertCircle, Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
 import { writeFile } from "@tauri-apps/plugin-fs";
-import { PdfDocument } from "./PdfDocument";
+import { PdfDocument } from "../../pdf/components/PdfDocument";
 
 const fontStyleMap: Record<string, string> = {
   "Modern Sans": "'Montserrat', 'Inter', sans-serif",
@@ -168,8 +168,8 @@ export function Preview() {
     }
   };
 
-  const isSudoku = activePuzzle.puzzle_type === "Sudoku";
-  const isCrossword = activePuzzle.puzzle_type === "Crossword";
+  const isSudoku = activePuzzle.specificData.type === "Sudoku";
+  const isCrossword = activePuzzle.specificData.type === "Crossword";
   const cols = activePuzzle.grid[0]?.length || 0;
   const rows = activePuzzle.grid.length || 0;
 
@@ -313,12 +313,12 @@ export function Preview() {
                   if (isSudoku) {
                     const isStarting = startingVal !== null;
                     if (!isStarting && showSolutions) {
-                      displayVal = activePuzzle.specific_data.solution?.[y]?.[x] ?? null;
+                      displayVal = (activePuzzle.specificData.data as any).solution?.[y]?.[x] ?? null;
                       isSolutionValue = true;
                     }
                   } else if (isCrossword) {
                     if (!isBlackCell && showSolutions) {
-                      displayVal = activePuzzle.specific_data.solution?.[y]?.[x] ?? "";
+                      displayVal = (activePuzzle.specificData.data as any).solution?.[y]?.[x] ?? "";
                       isSolutionValue = true;
                     } else {
                       displayVal = "";
@@ -342,13 +342,13 @@ export function Preview() {
 
                   // Find clue starting at y, x for crossword numbering
                   const crosswordClue = isCrossword
-                    ? activePuzzle.specific_data.clues?.find((c: any) => c.row === y && c.col === x)
+                    ? (activePuzzle.specificData.data as any).clues?.find((c: any) => c.row === y && c.col === x)
                     : null;
 
                   let charClass = "text-slate-700 font-bold font-semibold";
                   if (!isSudoku && !isCrossword) {
                     if (showSolutions) {
-                      const inSol = isCellInSolution(x, y, activePuzzle.specific_data.solutions);
+                      const inSol = isCellInSolution(x, y, (activePuzzle.specificData.data as any).solutions);
                       if (solutionStyleSetting === "Greyscale Mute") {
                         if (inSol) {
                           charClass = ideThemeSetting
@@ -416,7 +416,7 @@ export function Preview() {
                 }}
                 viewBox={`0 0 ${gridWidth} ${gridHeight}`}
               >
-                {activePuzzle.specific_data.solutions.map((sol: any, index: number) => {
+                {(activePuzzle.specificData.data as any).solutions.map((sol: any, index: number) => {
                   const x1 = sol.start_x * step + cellSize / 2;
                   const y1 = sol.start_y * step + cellSize / 2;
                   const x2 = sol.end_x * step + cellSize / 2;
@@ -477,12 +477,12 @@ export function Preview() {
         </div>
 
         {/* Word Bank Container (Word Search) */}
-        {activePuzzle.puzzle_type === "WordSearch" && (
+        {activePuzzle.specificData.type === "WordSearch" && (
           <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex-shrink-0 max-h-[30%] overflow-y-auto text-left">
             <h3 className="font-bold text-slate-800 mb-3 text-base border-b pb-1.5 flex items-center justify-between">
               <span style={{ fontFamily: titleFontFamily }}>Word Bank</span>
               <span className="text-xs text-slate-400 font-normal">
-                {activePuzzle.specific_data.word_bank.length - activePuzzle.specific_data.unplaced_words.length} / {activePuzzle.specific_data.word_bank.length} Placed
+                {(activePuzzle.specificData.data as any).word_bank.length - (activePuzzle.specificData.data as any).unplaced_words.length} / {(activePuzzle.specificData.data as any).word_bank.length} Placed
               </span>
             </h3>
             <div 
@@ -492,8 +492,8 @@ export function Preview() {
                 fontFamily: titleFontFamily
               }}
             >
-              {activePuzzle.specific_data.word_bank.map((word: string, i: number) => {
-                const unplaced = activePuzzle.specific_data.unplaced_words.includes(word);
+              {(activePuzzle.specificData.data as any).word_bank.map((word: string, i: number) => {
+                const unplaced = (activePuzzle.specificData.data as any).unplaced_words.includes(word);
                 const upperWord = word.toUpperCase();
                 const isHovered = hoveredWord === upperWord;
                 const isAnyHovered = hoveredWord !== null;
@@ -540,7 +540,7 @@ export function Preview() {
         )}
 
         {/* Number Placement Helper (Sudoku) */}
-        {activePuzzle.puzzle_type === "Sudoku" && (
+        {activePuzzle.specificData.type === "Sudoku" && (
           <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex-shrink-0">
             <h3 className="font-bold text-slate-800 mb-3 text-base border-b pb-1.5 flex items-center justify-between">
               <span>Sudoku Number Counter</span>
@@ -578,7 +578,7 @@ export function Preview() {
         )}
 
         {/* Clues Panel (Crossword) */}
-        {activePuzzle.puzzle_type === "Crossword" && (
+        {activePuzzle.specificData.type === "Crossword" && (
           <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200 flex-shrink-0 max-h-[35%] overflow-y-auto flex flex-col">
             <h3 className="font-bold text-slate-800 mb-3 text-base border-b pb-1.5 flex justify-between">
               <span>Crossword Clues</span>
@@ -586,11 +586,11 @@ export function Preview() {
                 Theme: {activePuzzle.title.split(": ").slice(1).join("") || "General"}
               </span>
             </h3>
-            {activePuzzle.specific_data.unplaced_words?.length > 0 && (
+            {(activePuzzle.specificData.data as any).unplaced_words?.length > 0 && (
               <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-[11px] text-amber-800">
                 <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
                 <span>
-                  <strong>Warning:</strong> {activePuzzle.specific_data.unplaced_words.length} clue(s) could not fit in the grid: <strong>{activePuzzle.specific_data.unplaced_words.map((c: any) => c.word).join(", ")}</strong>. Try increasing grid dimensions.
+                  <strong>Warning:</strong> {(activePuzzle.specificData.data as any).unplaced_words.length} clue(s) could not fit in the grid: <strong>{(activePuzzle.specificData.data as any).unplaced_words.map((c: any) => c.word).join(", ")}</strong>. Try increasing grid dimensions.
                 </span>
               </div>
             )}
@@ -599,7 +599,7 @@ export function Preview() {
               <div>
                 <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b pb-1">Across</h4>
                 <div className="flex flex-col gap-2 overflow-y-auto max-h-[120px] pr-2">
-                  {activePuzzle.specific_data.clues
+                  {(activePuzzle.specificData.data as any).clues
                     .filter((c: any) => c.direction === "across")
                     .map((c: any) => (
                       <div key={c.id} className="text-xs text-slate-700 leading-normal flex gap-1.5">
@@ -613,7 +613,7 @@ export function Preview() {
               <div>
                 <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b pb-1">Down</h4>
                 <div className="flex flex-col gap-2 overflow-y-auto max-h-[120px] pr-2">
-                  {activePuzzle.specific_data.clues
+                  {(activePuzzle.specificData.data as any).clues
                     .filter((c: any) => c.direction === "down")
                     .map((c: any) => (
                       <div key={c.id} className="text-xs text-slate-700 leading-normal flex gap-1.5">
