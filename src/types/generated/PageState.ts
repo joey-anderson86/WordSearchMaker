@@ -13,7 +13,7 @@ export type PageState = {
   metadata: PuzzlePayload;
   backgroundColor?: string;
   themeColor?: string;
-  margin?: { top: number; bottom: number; left: number; right: number };
+  margin?: { top: number; bottom: number; inside: number; outside: number };
   gridSnapSize?: number;
   showMargins?: boolean;
 };

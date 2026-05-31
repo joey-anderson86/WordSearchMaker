@@ -12,6 +12,16 @@ pub struct WordPlacement {
 }
 
 #[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/BulkPuzzleRequest.ts")]
+pub struct BulkPuzzleRequest {
+    pub title: String,
+    pub width: usize,
+    pub height: usize,
+    pub words: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
 #[ts(export, export_to = "../../src/types/generated/WordSearchData.ts")]
 pub struct WordSearchData {
     pub word_bank: Vec<String>,
@@ -108,6 +118,7 @@ mod tests {
 
     #[test]
     fn export_bindings() {
+        BulkPuzzleRequest::export().expect("failed to export BulkPuzzleRequest");
         WordPlacement::export().expect("failed to export WordPlacement");
         WordSearchData::export().expect("failed to export WordSearchData");
         SudokuData::export().expect("failed to export SudokuData");

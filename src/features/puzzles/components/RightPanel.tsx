@@ -199,9 +199,9 @@ export function RightPanel() {
                 className="bg-slate-800 border border-slate-750 rounded-lg p-2 text-xs text-slate-200 outline-none"
               >
                 <option value="0">Off (Smooth Drag)</option>
-                <option value="5">5 pt (Fine Snap)</option>
-                <option value="10">10 pt (Medium Snap)</option>
-                <option value="20">20 pt (Coarse Snap)</option>
+                <option value="9">1/8" (9 pt)</option>
+                <option value="18">1/4" (18 pt)</option>
+                <option value="36">1/2" (36 pt)</option>
               </select>
             </div>
 
@@ -250,20 +250,20 @@ export function RightPanel() {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[9px] text-slate-500 font-semibold">Left</label>
+                  <label className="text-[9px] text-slate-500 font-semibold">Inside (Gutter)</label>
                   <input
                     type="number"
-                    value={activePage.margin?.left ?? 40}
-                    onChange={(e) => updatePageMargin(activePage.id, { left: parseFloat(e.target.value) || 0 })}
+                    value={activePage.margin?.inside ?? (activePage.margin as any)?.left ?? 50}
+                    onChange={(e) => updatePageMargin(activePage.id, { inside: parseFloat(e.target.value) || 0 })}
                     className="bg-slate-800 border border-slate-750 rounded p-1 text-slate-200 outline-none font-mono"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[9px] text-slate-500 font-semibold">Right</label>
+                  <label className="text-[9px] text-slate-500 font-semibold">Outside</label>
                   <input
                     type="number"
-                    value={activePage.margin?.right ?? 40}
-                    onChange={(e) => updatePageMargin(activePage.id, { right: parseFloat(e.target.value) || 0 })}
+                    value={activePage.margin?.outside ?? (activePage.margin as any)?.right ?? 40}
+                    onChange={(e) => updatePageMargin(activePage.id, { outside: parseFloat(e.target.value) || 0 })}
                     className="bg-slate-800 border border-slate-750 rounded p-1 text-slate-200 outline-none font-mono"
                   />
                 </div>

@@ -1,6 +1,8 @@
-use crate::models::{PuzzlePayload, PuzzleSpecificData, WordPlacement, WordSearchData};
+use crate::models::{PuzzlePayload, PuzzleSpecificData, WordPlacement, WordSearchData, BulkPuzzleRequest};
 use rand::{seq::SliceRandom, thread_rng, Rng};
 use uuid::Uuid;
+use rayon::prelude::*;
+use tauri::{AppHandle, Emitter};
 
 pub fn generate_word_search(
     width: usize,
@@ -126,4 +128,28 @@ pub fn generate_word_search(
         selector_style: None,
         solution_style: None,
     }
+}
+
+pub fn generate_bulk_word_searches(
+    app_handle: AppHandle,
+    requests: Vec<BulkPuzzleRequest>,
+) -> Vec<PuzzlePayload> {
+    let total = requests.len();
+    let completed = std::sync::atomic::AtomicUsize::new(0);
+
+    requests
+        .into_par_iter()
+        .map(|req| {
+            let mut payload = generate_word_search(req.width, req.height, req.words);
+            payload.title = req.title;
+
+            let current = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            let progress = (current as f64 / total as f64) * 100.0;
+
+            // Emit progress to frontend
+            let _ = app_handle.emit("puzzle_generation_progress", progress);
+
+            payload
+        })
+        .collect()
 }

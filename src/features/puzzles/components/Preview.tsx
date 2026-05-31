@@ -175,11 +175,20 @@ export function Preview() {
   };
 
   const pageDims = getPageDimensions(pageSize);
+  
+  // New canvas physical dimensions including bleed
+  const bleedSize = 9; // 0.125 inches in points
+  const safeMargin = 27; // 0.375 inches in points from trim
+  const canvasDims = {
+    width: pageDims.width + (bleedSize * 2),
+    height: pageDims.height + (bleedSize * 2)
+  };
+
   const containerW = dimensions.width;
   const containerH = dimensions.height;
   const scale = Math.min(
-    containerW / pageDims.width,
-    containerH / pageDims.height
+    containerW / canvasDims.width,
+    containerH / canvasDims.height
   );
 
   const activePuzzle = activePage.metadata;
@@ -204,7 +213,17 @@ export function Preview() {
     const initialMouseY = e.clientY;
 
     const snapSize = activePage.gridSnapSize ?? 10;
-    const margin = activePage.margin ?? { top: 40, bottom: 50, left: 40, right: 40 };
+    const margin = activePage.margin ?? { top: 40, bottom: 50, inside: 50, outside: 40 };
+    
+    const pageNum = activeIndex + 1;
+    const isEven = pageNum % 2 === 0;
+    
+    // Backwards compatibility for old saved states
+    const insideMargin = margin.inside ?? (margin as any).left ?? 50;
+    const outsideMargin = margin.outside ?? (margin as any).right ?? 40;
+    
+    const leftMargin = isEven ? outsideMargin : insideMargin;
+    const rightMargin = isEven ? insideMargin : outsideMargin;
 
     let elWidth = 0;
     let elHeight = 0;
@@ -233,10 +252,10 @@ export function Preview() {
       const tolerance = 6;
       
       // Horizontal Snaps
-      if (Math.abs(newX - margin.left) < tolerance) {
-        newX = margin.left;
-      } else if (Math.abs((newX + elWidth) - (pageDims.width - margin.right)) < tolerance) {
-        newX = pageDims.width - margin.right - elWidth;
+      if (Math.abs(newX - leftMargin) < tolerance) {
+        newX = leftMargin;
+      } else if (Math.abs((newX + elWidth) - (pageDims.width - rightMargin)) < tolerance) {
+        newX = pageDims.width - rightMargin - elWidth;
       } else if (snapSize > 0) {
         newX = Math.round(newX / snapSize) * snapSize;
       }
@@ -789,28 +808,66 @@ export function Preview() {
         onClick={() => setSelectedElementId(null)}
       >
         <div 
-          className="shadow-2xl relative flex-shrink-0 border border-slate-350"
+          className="shadow-2xl relative flex-shrink-0 border border-slate-350 overflow-hidden"
           style={{
-            width: `${pageDims.width}px`,
-            height: `${pageDims.height}px`,
+            width: `${canvasDims.width}px`,
+            height: `${canvasDims.height}px`,
             transform: `scale(${scale})`,
             transformOrigin: 'center center',
             backgroundColor: activePage.backgroundColor || "#ffffff"
           }}
         >
-          {/* Visual Margin Guides (Dashed Box) */}
-          {activePage.showMargins && activePage.margin && (
-            <div 
-              className="absolute border border-dashed border-red-400/50 pointer-events-none rounded"
-              style={{
-                left: `${activePage.margin.left}px`,
-                top: `${activePage.margin.top}px`,
-                width: `${pageDims.width - activePage.margin.left - activePage.margin.right}px`,
-                height: `${pageDims.height - activePage.margin.top - activePage.margin.bottom}px`,
-                zIndex: 0
-              }}
-            />
-          )}
+          {/* New Trim & Safe Guides */}
+          {activePage.showMargins && (() => {
+            const margin = activePage.margin ?? { top: 40, bottom: 50, inside: 50, outside: 40 };
+            const pageNum = activeIndex + 1;
+            const isEven = pageNum % 2 === 0;
+            
+            // Backwards compatibility for old saved states
+            const insideMargin = margin.inside ?? (margin as any).left ?? 50;
+            const outsideMargin = margin.outside ?? (margin as any).right ?? 40;
+            
+            const leftMargin = isEven ? outsideMargin : insideMargin;
+            const rightMargin = isEven ? insideMargin : outsideMargin;
+
+            return (
+              <>
+                {/* Bleed area is simply the canvas itself, Trim Guide inside it */}
+                <div 
+                  className="absolute border border-slate-400/80 pointer-events-none"
+                  style={{
+                    left: `${bleedSize}px`,
+                    top: `${bleedSize}px`,
+                    width: `${pageDims.width}px`,
+                    height: `${pageDims.height}px`,
+                    zIndex: 0
+                  }}
+                />
+                {/* Safe Guide */}
+                <div 
+                  className="absolute border border-blue-400/60 border-dashed pointer-events-none"
+                  style={{
+                    left: `${bleedSize + safeMargin}px`,
+                    top: `${bleedSize + safeMargin}px`,
+                    width: `${pageDims.width - (safeMargin * 2)}px`,
+                    height: `${pageDims.height - (safeMargin * 2)}px`,
+                    zIndex: 0
+                  }}
+                />
+                {/* Visual Margin Guides (Dashed Box) */}
+                <div 
+                  className="absolute border border-dashed border-red-400/50 pointer-events-none rounded"
+                  style={{
+                    left: `${leftMargin + bleedSize}px`,
+                    top: `${margin.top + bleedSize}px`,
+                    width: `${pageDims.width - leftMargin - rightMargin}px`,
+                    height: `${pageDims.height - margin.top - margin.bottom}px`,
+                    zIndex: 0
+                  }}
+                />
+              </>
+            );
+          })()}
 
           {/* 1. Render Art Layers */}
           {activePage.artLayers.map((layer) => {
@@ -820,8 +877,8 @@ export function Preview() {
                 key={layer.id}
                 className={`absolute group cursor-move ${isSelected ? "ring-2 ring-emerald-500 ring-offset-1" : "hover:ring-1 hover:ring-slate-300"}`}
                 style={{
-                  left: `${layer.x}px`,
-                  top: `${layer.y}px`,
+                  left: `${layer.x + bleedSize}px`,
+                  top: `${layer.y + bleedSize}px`,
                   width: `${layer.width}px`,
                   height: `${layer.height}px`,
                   zIndex: layer.zIndex ?? 1,
@@ -858,8 +915,8 @@ export function Preview() {
                 key={el.id}
                 className={`absolute group cursor-move ${isSelected ? "ring-2 ring-emerald-500 ring-offset-1" : "hover:ring-1 hover:ring-slate-355"}`}
                 style={{
-                  left: `${el.x}px`,
-                  top: `${el.y}px`,
+                  left: `${el.x + bleedSize}px`,
+                  top: `${el.y + bleedSize}px`,
                   width: `${el.width}px`,
                   height: `${el.height}px`,
                   zIndex: el.zIndex ?? 10,

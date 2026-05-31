@@ -5,6 +5,10 @@ import {
   NodeGraphPayload,
   RelationalPayload
 } from "./types";
+import { invoke } from '@tauri-apps/api/core';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { BulkPuzzleRequest } from '../types/generated/BulkPuzzleRequest';
+import type { PuzzlePayload as RustPuzzlePayload } from '../types/generated/PuzzlePayload';
 
 /**
  * Interface representing a component or controller that handles a specific category of puzzles.
@@ -168,6 +172,28 @@ export class PuzzleManager {
   }
 
   /**
+   * Generates multiple puzzles in parallel on the Rust backend and streams progress updates.
+   */
+  public async generateBulkPuzzles(
+    requests: BulkPuzzleRequest[],
+    onProgress: (progress: number) => void
+  ): Promise<RustPuzzlePayload[]> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<number>("puzzle_generation_progress", (event) => {
+        onProgress(event.payload);
+      });
+      
+      const results: RustPuzzlePayload[] = await invoke("generate_bulk_puzzles", { requests });
+      return results;
+    } finally {
+      if (unlisten) {
+        unlisten();
+      }
+    }
+  }
+
+  /**
    * Populates the registry with standard puzzle handlers.
    */
   private registerDefaultHandlers(): void {
@@ -227,3 +253,5 @@ export class PuzzleManager {
     }
   }
 }
+
+export const puzzleManager = new PuzzleManager();

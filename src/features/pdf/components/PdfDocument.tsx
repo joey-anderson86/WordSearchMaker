@@ -1,26 +1,8 @@
-import { Document, Page, View, Text, StyleSheet, Svg, Rect, Font, Image } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet, Svg, Rect, Image } from "@react-pdf/renderer";
 import type { PageState } from "../../../types/generated/PageState";
+import { registerFonts } from "../../../utils/fonts";
 
-Font.register({
-  family: 'Montserrat',
-  src: '/fonts/montserrat.ttf'
-});
-Font.register({
-  family: 'Inter',
-  src: '/fonts/inter.ttf'
-});
-Font.register({
-  family: 'Oswald',
-  src: '/fonts/oswald.ttf'
-});
-Font.register({
-  family: 'JetBrains Mono',
-  src: '/fonts/jetbrains-mono.ttf'
-});
-Font.register({
-  family: 'Fira Code',
-  src: '/fonts/fira-code.ttf'
-});
+registerFonts();
 
 const fontStyleMap: Record<string, string> = {
   "Modern Sans": "Montserrat",
@@ -73,15 +55,15 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   subtitleText: {
-    fontSize: 9,
+    fontSize: '9pt',
     color: '#64748b',
-    marginTop: 2,
+    marginTop: '2pt',
   },
   gridOuter: {
     position: 'relative',
-    borderWidth: 1.5,
+    borderWidth: '1.5pt',
     borderColor: '#475569',
-    borderRadius: 4,
+    borderRadius: '4pt',
     overflow: 'hidden',
   },
   svgOverlay: {
@@ -112,21 +94,21 @@ const styles = StyleSheet.create({
   },
   wordBankContainer: {
     backgroundColor: '#f8fafc',
-    borderWidth: 1,
+    borderWidth: '1pt',
     borderColor: '#e2e8f0',
-    borderRadius: 6,
-    padding: 10,
+    borderRadius: '6pt',
+    padding: '10pt',
     display: 'flex',
     flexDirection: 'column',
   },
   wordBankTitle: {
-    fontSize: 10,
+    fontSize: '10pt',
     fontFamily: 'Helvetica-Bold',
     color: '#334155',
-    marginBottom: 4,
-    borderBottomWidth: 0.5,
+    marginBottom: '4pt',
+    borderBottomWidth: '0.5pt',
     borderBottomColor: '#e2e8f0',
-    paddingBottom: 2,
+    paddingBottom: '2pt',
   },
   wordBankGrid: {
     display: 'flex',
@@ -139,50 +121,52 @@ const styles = StyleSheet.create({
   },
   wordBankCell: {
     flex: 1,
-    paddingHorizontal: 2,
+    paddingHorizontal: '2pt',
   },
   wordBankText: {
-    fontSize: 8.5,
+    fontSize: '8.5pt',
     color: '#475569',
     fontFamily: 'Helvetica',
   },
   unplacedContainer: {
-    marginTop: 6,
-    padding: 6,
+    marginTop: '6pt',
+    padding: '6pt',
     backgroundColor: '#fff1f2',
-    borderWidth: 0.5,
+    borderWidth: '0.5pt',
     borderColor: '#fecdd3',
-    borderRadius: 4,
+    borderRadius: '4pt',
   },
   unplacedTitle: {
-    fontSize: 8,
+    fontSize: '8pt',
     fontFamily: 'Helvetica-Bold',
     color: '#991b1b',
-    marginBottom: 2,
+    marginBottom: '2pt',
   },
   unplacedText: {
-    fontSize: 7.5,
+    fontSize: '7.5pt',
     color: '#991b1b',
     fontFamily: 'Helvetica',
   },
   footer: {
     position: 'absolute',
-    bottom: 25,
-    left: 40,
-    right: 40,
+    bottom: '25pt',
+    left: '40pt',
+    right: '40pt',
     textAlign: 'center',
-    fontSize: 8,
+    fontSize: '8pt',
     color: '#94a3b8',
-    borderTopWidth: 0.5,
+    borderTopWidth: '0.5pt',
     borderTopColor: '#f1f5f9',
-    paddingTop: 5,
+    paddingTop: '5pt',
   },
 });
 
 const renderPdfPage = (
   page: PageState,
   drawSolutions: boolean,
-  pageSize: string
+  pageSize: string,
+  pageIndex: number,
+  pageDims: { width: number; height: number }
 ) => {
   const activePuzzle = page.metadata;
   const isSudoku = activePuzzle.specificData.type === "Sudoku";
@@ -259,11 +243,27 @@ const renderPdfPage = (
           const solutionStyleSetting = el.content.solutionStyle || "Greyscale Mute";
           const gridFontFamily = fontStyleMap[gridFont] || 'Helvetica-Bold';
 
+          const margin = page.margin ?? { top: 40, bottom: 50, inside: 50, outside: 40 };
+          const isEvenPage = (pageIndex + 1) % 2 === 0;
+          
+          // Backwards compatibility for old saved states
+          const insideMargin = margin.inside ?? (margin as any).left ?? 50;
+          const outsideMargin = margin.outside ?? (margin as any).right ?? 40;
+          
+          const rightMargin = isEvenPage ? insideMargin : outsideMargin;
+
+          // Add alternating offset to X based on difference from inside/outside to visual editor layout
+          // Visual layout assumes left = leftMargin of this exact page (because we fixed Preview.tsx to alternate).
+          // So no shift is needed, but we MUST ensure the grid is bounded by the safe area!
+          
+          const maxSafeWidth = pageDims.width - rightMargin - el.x;
+          const maxSafeHeight = pageDims.height - margin.bottom - el.y;
+
           const paddingOffset = ideThemeSetting ? 32 : 0;
           const gapOffset = isSudoku || isCrossword ? 0 : (cols > 20 || rows > 20 ? 2 : 4);
           
-          const availableW = el.width - paddingOffset;
-          const availableH = el.height - (ideThemeSetting ? 56 : 0);
+          const availableW = Math.min(el.width - paddingOffset, maxSafeWidth - paddingOffset);
+          const availableH = Math.min(el.height - (ideThemeSetting ? 56 : 0), maxSafeHeight - (ideThemeSetting ? 56 : 0));
           
           const maxCellSizeW = (availableW - (cols - 1) * gapOffset) / cols;
           const maxCellSizeH = (availableH - (rows - 1) * gapOffset) / rows;
@@ -680,15 +680,22 @@ export function PdfDocument({
   includeSolutions,
   isSinglePage = false,
 }: PdfDocumentProps) {
+  const PAGE_SIZES: Record<string, { width: number, height: number }> = {
+    "A4": { width: 595, height: 841 },
+    "LETTER": { width: 612, height: 792 },
+  };
+  const norm = pageSize.toUpperCase();
+  const pageDims = PAGE_SIZES[norm] || PAGE_SIZES["A4"];
+
   return (
     <Document>
       {/* 1. Puzzle Pages */}
-      {pages.map((page) => renderPdfPage(page, false, pageSize))}
+      {pages.map((page, idx) => renderPdfPage(page, false, pageSize, idx, pageDims))}
 
       {/* 2. Solution Pages */}
       {!isSinglePage &&
         includeSolutions &&
-        pages.map((page) => renderPdfPage(page, true, pageSize))}
+        pages.map((page, idx) => renderPdfPage(page, true, pageSize, idx + pages.length, pageDims))}
     </Document>
   );
 }

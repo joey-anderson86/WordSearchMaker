@@ -9,21 +9,21 @@ import { getPageDimensions } from "../types/pageSizes";
 export function createDefaultPageState(
   puzzle: PuzzlePayload, 
   pageSize: string, 
-  defaultMargins: { top: number; bottom: number; left: number; right: number },
+  defaultMargins: { top: number; bottom: number; inside: number; outside: number },
   defaultGridSnapSize: number
 ): PageState {
   const dims = getPageDimensions(pageSize);
   const isSudoku = puzzle.specificData.type === "Sudoku";
   const isCrossword = puzzle.specificData.type === "Crossword";
 
-  const safeWidth = dims.width - defaultMargins.left - defaultMargins.right;
+  const safeWidth = dims.width - defaultMargins.inside - defaultMargins.outside;
 
   const gridLayout: GridElement[] = [
     // 1. Title Element
     {
       id: "title",
       type: "title",
-      x: defaultMargins.left,
+      x: defaultMargins.inside,
       y: defaultMargins.top,
       width: safeWidth,
       height: 45,
@@ -42,7 +42,7 @@ export function createDefaultPageState(
     {
       id: "grid",
       type: "grid",
-      x: defaultMargins.left,
+      x: defaultMargins.inside,
       y: defaultMargins.top + 65,
       width: safeWidth,
       height: isSudoku ? 360 : isCrossword ? 320 : 360,
@@ -63,7 +63,7 @@ export function createDefaultPageState(
     gridLayout.push({
       id: "wordbank",
       type: "wordbank",
-      x: defaultMargins.left,
+      x: defaultMargins.inside,
       y: defaultMargins.top + 445,
       width: safeWidth,
       height: 120,
@@ -80,7 +80,7 @@ export function createDefaultPageState(
     gridLayout.push({
       id: "wordbank",
       type: "wordbank",
-      x: defaultMargins.left,
+      x: defaultMargins.inside,
       y: defaultMargins.top + 410,
       width: safeWidth,
       height: 200,
@@ -98,7 +98,7 @@ export function createDefaultPageState(
     gridLayout.push({
       id: "wordbank",
       type: "wordbank",
-      x: defaultMargins.left,
+      x: defaultMargins.inside,
       y: defaultMargins.top + 455,
       width: safeWidth,
       height: 180,
@@ -163,8 +163,8 @@ export function scalePageLayout(page: PageState, oldSize: string, newSize: strin
   const scaledMargin = page.margin ? {
     top: Math.round(page.margin.top * scaleY * 100) / 100,
     bottom: Math.round(page.margin.bottom * scaleY * 100) / 100,
-    left: Math.round(page.margin.left * scaleX * 100) / 100,
-    right: Math.round(page.margin.right * scaleX * 100) / 100,
+    inside: Math.round(page.margin.inside * scaleX * 100) / 100,
+    outside: Math.round(page.margin.outside * scaleX * 100) / 100,
   } : undefined;
 
   return {

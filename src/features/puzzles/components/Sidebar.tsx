@@ -18,10 +18,13 @@ import {
   Upload,
   Download,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { importBookFromJson, ImportValidationError } from "../../../utils/importJson";
 import { downloadTemplate } from "../../../utils/templateGenerator";
+import { puzzleManager } from "../../../puzzles/manager";
 
 const defaultThemes = [
   { name: "Programming", words: "RUST\nTAURI\nREACT\nTYPESCRIPT\nZUSTAND" },
@@ -45,6 +48,7 @@ export function Sidebar() {
   const setIncludeSolutions = useStore((state) => state.setIncludeSolutions);
   const setDefaultMargins = useStore((state) => state.setDefaultMargins);
   const setSelectedPuzzleId = useStore((state) => state.setSelectedPuzzleId);
+  const setViewMode = useStore((state) => state.setViewMode);
   const addPuzzle = useStore((state) => state.addPuzzle);
   const updatePuzzle = useStore((state) => state.updatePuzzle);
   const deletePuzzle = useStore((state) => state.deletePuzzle);
@@ -59,7 +63,9 @@ export function Sidebar() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState("");
+  const [importProgressPercent, setImportProgressPercent] = useState<number | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // States for adding new custom crossword clues
   const [newCwWord, setNewCwWord] = useState("");
@@ -302,6 +308,7 @@ export function Sidebar() {
     setImportError(null);
     setIsImporting(true);
     setImportProgress("Opening file picker...");
+    setImportProgressPercent(null);
 
     try {
       const bookData = await importBookFromJson();
@@ -310,6 +317,7 @@ export function Sidebar() {
       if (!bookData) {
         setIsImporting(false);
         setImportProgress("");
+        setImportProgressPercent(null);
         return;
       }
 
@@ -321,33 +329,29 @@ export function Sidebar() {
         setBookTitle(bookData.bookTitle);
       }
 
-      // Batch-generate each page
-      const totalPages = bookData.pages.length;
-      for (let i = 0; i < totalPages; i++) {
-        const page = bookData.pages[i];
-        setImportProgress(`Generating page ${i + 1} of ${totalPages}: ${page.title}...`);
+      // Batch-generate each page via Rust parallel processing
+      const requests = bookData.pages.map(page => ({
+        title: page.title,
+        width: page.gridWidth,
+        height: page.gridHeight,
+        words: page.words,
+      }));
 
-        try {
-          const result: PuzzlePayload = await invoke("generate_puzzle", {
-            width: page.gridWidth,
-            height: page.gridHeight,
-            words: page.words,
-          });
+      try {
+        setImportProgressPercent(0);
+        const results = await puzzleManager.generateBulkPuzzles(requests, (progress) => {
+          setImportProgress(`Generating book via Rust...`);
+          setImportProgressPercent(progress);
+        });
 
-          result.title = page.title;
-          addPuzzle(result);
-        } catch (pageErr) {
-          console.error(`Failed to generate page ${i + 1}: ${page.title}`, pageErr);
-          // Continue with remaining pages
-          setImportError(
-            `Warning: Page "${page.title}" failed to generate. ${
-              pageErr instanceof Error ? pageErr.message : String(pageErr)
-            }`
-          );
-        }
+        results.forEach(result => addPuzzle(result));
+      } catch (err) {
+        console.error("Bulk generation failed:", err);
+        setImportError(`Bulk generation failed: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       setImportProgress("");
+      setImportProgressPercent(null);
     } catch (err) {
       console.error("Import failed:", err);
       if (err instanceof ImportValidationError) {
@@ -363,9 +367,27 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-80 bg-slate-900 text-slate-100 flex flex-col h-screen overflow-hidden shadow-xl z-10 border-r border-slate-800">
-      {/* Book Configuration Section */}
-      <div className="p-5 pb-4 border-b border-slate-800 flex flex-col gap-4 flex-shrink-0">
+    <div className={`bg-slate-900 text-slate-100 flex flex-col h-screen overflow-hidden shadow-xl z-10 border-r border-slate-800 transition-all duration-300 flex-shrink-0 ${isCollapsed ? 'w-16' : 'w-80'}`}>
+      {/* Collapse Toggle Header */}
+      <div className="flex items-center justify-between p-3 border-b border-slate-800 flex-shrink-0">
+        {!isCollapsed && (
+          <div className="flex gap-1 bg-slate-800 p-0.5 rounded text-xs font-semibold">
+            <button className="bg-slate-600 text-white px-3 py-1 rounded shadow-sm cursor-default">Interior</button>
+            <button onClick={() => setViewMode('cover')} className="text-slate-400 hover:text-slate-200 px-3 py-1 rounded cursor-pointer">Cover</button>
+          </div>
+        )}
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors mx-auto"
+        >
+          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        </button>
+      </div>
+
+      {!isCollapsed && (
+        <>
+          {/* Book Configuration Section */}
+          <div className="p-5 pb-4 border-b border-slate-800 flex flex-col gap-4 flex-shrink-0">
         <div className="flex items-center gap-3">
           <BookOpen className="text-emerald-400" size={24} />
           <h2 className="text-lg font-bold tracking-wide">Book Settings</h2>
@@ -433,20 +455,20 @@ export function Sidebar() {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[9px] text-slate-500 font-semibold">Left</label>
+                <label className="text-[9px] text-slate-500 font-semibold">Inside</label>
                 <input
                   type="number"
-                  value={defaultMargins?.left ?? 40}
-                  onChange={(e) => setDefaultMargins({ ...defaultMargins, left: parseFloat(e.target.value) || 0 })}
+                  value={defaultMargins?.inside ?? 40}
+                  onChange={(e) => setDefaultMargins({ ...defaultMargins, inside: parseFloat(e.target.value) || 0 })}
                   className="bg-slate-855 border border-slate-700/80 rounded p-1 text-slate-200 outline-none font-mono"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[9px] text-slate-500 font-semibold">Right</label>
+                <label className="text-[9px] text-slate-500 font-semibold">Outside</label>
                 <input
                   type="number"
-                  value={defaultMargins?.right ?? 40}
-                  onChange={(e) => setDefaultMargins({ ...defaultMargins, right: parseFloat(e.target.value) || 0 })}
+                  value={defaultMargins?.outside ?? 40}
+                  onChange={(e) => setDefaultMargins({ ...defaultMargins, outside: parseFloat(e.target.value) || 0 })}
                   className="bg-slate-855 border border-slate-700/80 rounded p-1 text-slate-200 outline-none font-mono"
                 />
               </div>
@@ -485,9 +507,22 @@ export function Sidebar() {
 
           {/* Import Progress */}
           {isImporting && importProgress && (
-            <div className="flex items-center gap-2 p-2 bg-emerald-950/40 border border-emerald-800/40 rounded-lg text-[10px] text-emerald-300 animate-pulse">
-              <Loader2 size={10} className="animate-spin flex-shrink-0" />
-              <span className="truncate">{importProgress}</span>
+            <div className="flex flex-col gap-2 p-2.5 bg-emerald-950/40 border border-emerald-800/40 rounded-lg text-[10px] text-emerald-300">
+              <div className="flex items-center gap-2 animate-pulse">
+                <Loader2 size={10} className="animate-spin flex-shrink-0" />
+                <span className="truncate font-semibold tracking-wide">{importProgress}</span>
+                {importProgressPercent !== null && (
+                  <span className="ml-auto font-mono text-emerald-200">{Math.round(importProgressPercent)}%</span>
+                )}
+              </div>
+              {importProgressPercent !== null && (
+                <div className="w-full bg-emerald-950/50 rounded-full h-1.5 overflow-hidden border border-emerald-900/50">
+                  <div 
+                    className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300 ease-out shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
+                    style={{ width: `${importProgressPercent}%` }}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -823,6 +858,8 @@ export function Sidebar() {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -37,7 +37,7 @@ export interface PuzzleSlice {
     updateArtLayer: (pageId: string, layerId: string, updates: Partial<ArtLayer>) => void;
     resetPageLayout: (pageId: string, pageSize: string) => void;
     
-    updatePageMargin: (pageId: string, margin: { top?: number; bottom?: number; left?: number; right?: number }) => void;
+    updatePageMargin: (pageId: string, margin: { top?: number; bottom?: number; inside?: number; outside?: number }) => void;
     updatePageSnapSize: (pageId: string, snapSize: number) => void;
     updatePageShowMargins: (pageId: string, show: boolean) => void;
 }
@@ -70,7 +70,7 @@ export const createPuzzleSlice: StateCreator<any, [], [], PuzzleSlice> = (set, g
     addPuzzle: (puzzle) => {
         // Automatically wrap PuzzlePayload in a PageState layout
         const pageSize = get().pageSize || "A4";
-        const defaultMargins = get().defaultMargins || { top: 40, bottom: 50, left: 40, right: 40 };
+        const defaultMargins = get().defaultMargins || { top: 40, bottom: 50, inside: 50, outside: 40 };
         const defaultGridSnapSize = get().defaultGridSnapSize ?? 10;
         const page = createDefaultPageState(puzzle, pageSize, defaultMargins, defaultGridSnapSize);
         get().addPage(page);
@@ -230,7 +230,7 @@ export const createPuzzleSlice: StateCreator<any, [], [], PuzzleSlice> = (set, g
         const page = state.pages.find((p: PageState) => p.id === pageId);
         if (!page) return {};
         
-        const defaultMargins = get().defaultMargins || { top: 40, bottom: 50, left: 40, right: 40 };
+        const defaultMargins = get().defaultMargins || { top: 40, bottom: 50, inside: 50, outside: 40 };
         const defaultGridSnapSize = get().defaultGridSnapSize ?? 10;
         const defaults = createDefaultPageState(page.metadata, pageSize, defaultMargins, defaultGridSnapSize);
         const updatedPage = {
@@ -258,8 +258,8 @@ export const createPuzzleSlice: StateCreator<any, [], [], PuzzleSlice> = (set, g
             margin: {
                 top: page.margin?.top ?? 40,
                 bottom: page.margin?.bottom ?? 50,
-                left: page.margin?.left ?? 40,
-                right: page.margin?.right ?? 40,
+                inside: page.margin?.inside ?? 50,
+                outside: page.margin?.outside ?? 40,
                 ...marginUpdates
             }
         };
