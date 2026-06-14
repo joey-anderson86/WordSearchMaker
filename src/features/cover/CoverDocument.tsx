@@ -19,15 +19,9 @@ export const CoverDocument: React.FC<CoverDocumentProps> = ({
   const {
     paperType,
     coverBgColor,
-    coverTitle,
-    coverSubtitle,
-    coverAuthor,
-    coverSpineText,
-    coverTitleFont,
-    coverTitleColor,
-    coverTitleSize,
-    frontCoverArt,
     coverBgImage,
+    coverElements,
+    coverArtLayers,
   } = coverState;
 
   const dims = calculateCoverDimensions(trimWidth, trimHeight, pageCount, paperType);
@@ -37,78 +31,7 @@ export const CoverDocument: React.FC<CoverDocumentProps> = ({
       width: dims.totalWidthPt,
       height: dims.totalHeightPt,
       backgroundColor: coverBgColor,
-      flexDirection: 'row',
       position: 'relative',
-    },
-    backCover: {
-      width: dims.bleedPt + dims.trimWidthPt,
-      height: '100%',
-      position: 'relative',
-    },
-    spine: {
-      width: dims.spineWidthPt,
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      position: 'relative',
-    },
-    frontCover: {
-      width: dims.trimWidthPt + dims.bleedPt,
-      height: '100%',
-      position: 'relative',
-      paddingTop: dims.bleedPt + 72, // 1 inch padding from top trim
-      paddingLeft: 36,
-      paddingRight: dims.bleedPt + 36,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-    },
-    barcodeArea: {
-      position: 'absolute',
-      bottom: dims.bleedPt + 18, // 0.25 inch from bottom trim
-      right: 18, // 0.25 inch from spine fold
-      width: 2 * 72, // 2 inches
-      height: 1.2 * 72, // 1.2 inches
-      backgroundColor: '#ffffff', // Must be white per KDP guidelines
-    },
-    spineTextContainer: {
-      width: dims.totalHeightPt,
-      height: dims.spineWidthPt,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      transform: 'rotate(270deg)', // Rotated 270 degrees per standard KDP
-      transformOrigin: '50% 50%',
-    },
-    spineText: {
-      fontSize: Math.min(12, Math.max(6, dims.spineWidthPt - 9)), // Ensure text fits in spine with 0.0625" (4.5pt) clearance on each side
-      color: coverTitleColor,
-      fontFamily: coverTitleFont === 'Modern Sans' ? 'Helvetica' : 'Helvetica', // Fallback font, update if registering fonts
-      textAlign: 'center',
-    },
-    title: {
-      fontSize: coverTitleSize,
-      color: coverTitleColor,
-      fontFamily: coverTitleFont === 'Modern Sans' ? 'Helvetica' : 'Helvetica', // Fallback font
-      textAlign: 'center',
-      marginBottom: 10,
-    },
-    subtitle: {
-      fontSize: coverTitleSize * 0.5,
-      color: coverTitleColor,
-      fontFamily: coverTitleFont === 'Modern Sans' ? 'Helvetica' : 'Helvetica', // Fallback font
-      textAlign: 'center',
-      marginBottom: 20,
-    },
-    author: {
-      fontSize: coverTitleSize * 0.4,
-      color: coverTitleColor,
-      fontFamily: coverTitleFont === 'Modern Sans' ? 'Helvetica' : 'Helvetica', // Fallback font
-      textAlign: 'center',
-      marginTop: 'auto', // push to bottom
-      marginBottom: dims.bleedPt + 72,
     },
     bgImage: {
       position: 'absolute',
@@ -117,6 +40,14 @@ export const CoverDocument: React.FC<CoverDocumentProps> = ({
       width: dims.totalWidthPt,
       height: dims.totalHeightPt,
       zIndex: -1,
+    },
+    barcodeArea: {
+      position: 'absolute',
+      bottom: dims.bleedPt + 18, // 0.25 inch from bottom trim
+      right: dims.trimWidthPt + dims.spineWidthPt + dims.bleedPt + 18, // 0.25 inch from spine fold on the back cover
+      width: 2 * 72, // 2 inches
+      height: 1.2 * 72, // 1.2 inches
+      backgroundColor: '#ffffff', // Must be white per KDP guidelines
     },
   });
 
@@ -128,43 +59,57 @@ export const CoverDocument: React.FC<CoverDocumentProps> = ({
           <Image src={coverBgImage} style={styles.bgImage} />
         )}
 
-        {/* Back Cover Zone */}
-        <View style={styles.backCover}>
-          {/* 2" x 1.2" KDP Barcode Safe Area */}
-          <View style={styles.barcodeArea} />
-        </View>
+        {/* KDP Barcode Safe Area */}
+        <View style={styles.barcodeArea} />
 
-        {/* Spine Zone */}
-        <View style={styles.spine}>
-          {/* Ensure spine is wide enough for text (typically >100 pages, but we clamp size) */}
-          <View style={styles.spineTextContainer}>
-            <Text style={styles.spineText}>{coverSpineText}</Text>
-          </View>
-        </View>
+        {/* Art Layers */}
+        {coverArtLayers.map((art) => (
+          <Image
+            key={art.id}
+            src={art.url}
+            style={{
+              position: 'absolute',
+              left: art.x, // Absolute coordinate relative to the spread
+              top: art.y,
+              width: art.width,
+              height: art.height,
+              opacity: art.opacity ?? 1,
+            }}
+          />
+        ))}
 
-        {/* Front Cover Zone */}
-        <View style={styles.frontCover}>
-          <Text style={styles.title}>{coverTitle}</Text>
-          {coverSubtitle && <Text style={styles.subtitle}>{coverSubtitle}</Text>}
-          
-          {/* Front Cover Art Layers */}
-          {frontCoverArt.map((art) => (
-             <Image
-               key={art.id}
-               src={art.url}
-               style={{
-                 position: 'absolute',
-                 left: art.x + dims.bleedPt, // Relative to front cover trim edge
-                 top: art.y + dims.bleedPt,
-                 width: art.width,
-                 height: art.height,
-                 opacity: art.opacity ?? 1,
-               }}
-             />
-          ))}
-
-          <Text style={styles.author}>{coverAuthor}</Text>
-        </View>
+        {/* Text Elements */}
+        {coverElements.map((el) => {
+          const isSpine = el.type === 'spine';
+          return (
+            <View
+              key={el.id}
+              style={{
+                position: 'absolute',
+                left: el.x,
+                top: el.y,
+                width: el.width,
+                height: el.height,
+                transform: isSpine ? 'rotate(-90deg)' : 'none',
+                transformOrigin: '50% 50%',
+                display: 'flex',
+                justifyContent: el.content.align === 'center' ? 'center' : (el.content.align === 'right' ? 'flex-end' : 'flex-start'),
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  color: el.content.color || '#000000',
+                  fontSize: el.content.fontSize ?? 12,
+                  fontFamily: el.content.fontFamily === 'Modern Sans' ? 'Helvetica' : 'Helvetica',
+                  textAlign: el.content.align as any,
+                }}
+              >
+                {el.content.text}
+              </Text>
+            </View>
+          );
+        })}
       </Page>
     </Document>
   );

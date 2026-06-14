@@ -9,8 +9,7 @@ export function CoverPreview() {
     const coverState = useStore();
     const {
         pageSize, pages, includeSolutions,
-        coverBgImage, coverBgColor, coverTitle, coverSubtitle,
-        coverAuthor, coverSpineText, coverTitleFont, coverTitleColor, coverTitleSize
+        coverBgImage, coverBgColor, coverElements, coverArtLayers
     } = coverState;
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -106,115 +105,107 @@ export function CoverPreview() {
                         <img src={coverBgImage} alt="Cover Background" className="absolute top-0 left-0 w-full h-full object-cover pointer-events-none" />
                     )}
 
-                    {/* Bleed Guide (Red Dashed Box) */}
-                    <div 
-                        className="absolute border border-dashed border-red-500/50 pointer-events-none"
-                        style={{
-                            top: `${bleedPt}px`,
-                            left: `${bleedPt}px`,
-                            right: `${bleedPt}px`,
-                            bottom: `${bleedPt}px`,
-                            zIndex: 10
-                        }}
-                    />
-
-                    {/* Left (Back Cover) */}
-                    <div 
-                        className="absolute border-r border-blue-500/30 border-dashed pointer-events-none"
-                        style={{
-                            top: 0,
-                            left: 0,
-                            width: `${trimWidth + bleedPt}px`,
-                            height: `${totalHeight}px`,
-                        }}
-                    >
-                        {/* Barcode */}
+                    {/* Guides Container (Pointer Events None) */}
+                    <div className="absolute inset-0 pointer-events-none z-10">
+                        {/* Bleed Guide (Red Dashed Box) */}
                         <div 
-                            className="absolute bg-white flex items-center justify-center border border-slate-300 shadow-sm"
+                            className="absolute border border-dashed border-red-500/50"
+                            style={{
+                                top: `${bleedPt}px`,
+                                left: `${bleedPt}px`,
+                                right: `${bleedPt}px`,
+                                bottom: `${bleedPt}px`,
+                            }}
+                        />
+
+                        {/* Back Cover Guide */}
+                        <div 
+                            className="absolute border-r border-blue-500/30 border-dashed"
+                            style={{
+                                top: 0,
+                                left: 0,
+                                width: `${trimWidth + bleedPt}px`,
+                                height: `${totalHeight}px`,
+                            }}
+                        />
+
+                        {/* Spine Guide */}
+                        <div 
+                            className="absolute border-r border-blue-500/30 border-dashed"
+                            style={{
+                                top: 0,
+                                left: `${trimWidth + bleedPt}px`,
+                                width: `${spineWidthPt}px`,
+                                height: `${totalHeight}px`,
+                            }}
+                        />
+
+                        {/* Barcode Location Guide */}
+                        <div 
+                            className="absolute bg-white/80 flex items-center justify-center border border-slate-400 border-dashed"
                             style={{
                                 bottom: `${bleedPt + 18}px`,
-                                right: `18px`,
+                                left: `${trimWidth + bleedPt - 18 - 144}px`, // 18px from spine fold on the back cover
                                 width: `144px`,
                                 height: `86.4px`,
                             }}
                         >
-                            <span className="text-[8px] text-slate-400 font-mono">Barcode / ISBN</span>
+                            <span className="text-[8px] text-slate-500 font-mono">Barcode / ISBN Area</span>
                         </div>
                     </div>
 
-                    {/* Center (Spine) */}
-                    <div 
-                        className="absolute border-r border-blue-500/30 border-dashed flex items-center justify-center overflow-hidden"
-                        style={{
-                            top: 0,
-                            left: `${trimWidth + bleedPt}px`,
-                            width: `${spineWidthPt}px`,
-                            height: `${totalHeight}px`,
-                        }}
-                    >
-                        <span 
+                    {/* Art Layers */}
+                    {coverArtLayers.map(layer => (
+                        <img
+                            key={layer.id}
+                            src={layer.url}
+                            alt="Art layer"
+                            className="absolute pointer-events-none"
                             style={{
-                                transform: 'rotate(-90deg)',
-                                whiteSpace: 'nowrap',
-                                color: coverTitleColor,
-                                fontFamily: coverTitleFont === 'Modern Sans' ? 'sans-serif' : 'monospace', // Fallbacks since we don't load the real font in CSS here right now
-                                fontSize: '10px',
-                                fontWeight: 'bold'
+                                left: `${layer.x}px`,
+                                top: `${layer.y}px`,
+                                width: `${layer.width}px`,
+                                height: `${layer.height}px`,
+                                opacity: layer.opacity ?? 1,
+                                zIndex: layer.zIndex ?? 1
                             }}
-                        >
-                            {coverSpineText}
-                        </span>
-                    </div>
+                        />
+                    ))}
 
-                    {/* Right (Front Cover) */}
-                    <div 
-                        className="absolute flex flex-col items-center justify-center p-8"
-                        style={{
-                            top: 0,
-                            left: `${trimWidth + bleedPt + spineWidthPt}px`,
-                            width: `${trimWidth + bleedPt}px`,
-                            height: `${totalHeight}px`,
-                        }}
-                    >
-                        <h1 
-                            className="text-center w-full mb-4 px-4"
-                            style={{ 
-                                color: coverTitleColor, 
-                                fontSize: `${coverTitleSize}px`,
-                                fontFamily: coverTitleFont === 'Modern Sans' ? 'sans-serif' : 'monospace',
-                                fontWeight: 'bold',
-                                lineHeight: 1.1
-                            }}
-                        >
-                            {coverTitle}
-                        </h1>
-                        {coverSubtitle && (
-                            <h2 
-                                className="text-center w-full mb-12 px-8"
-                                style={{ 
-                                    color: coverTitleColor, 
-                                    fontSize: `${coverTitleSize * 0.4}px`,
-                                    fontFamily: coverTitleFont === 'Modern Sans' ? 'sans-serif' : 'monospace',
-                                    lineHeight: 1.2
+                    {/* Text Elements */}
+                    {coverElements.map(el => {
+                        const isSpine = el.type === 'spine';
+                        return (
+                            <div
+                                key={el.id}
+                                className="absolute flex items-center pointer-events-none"
+                                style={{
+                                    left: `${el.x}px`,
+                                    top: `${el.y}px`,
+                                    width: `${el.width}px`,
+                                    height: `${el.height}px`,
+                                    zIndex: el.zIndex ?? 10,
+                                    transform: isSpine ? 'rotate(-90deg)' : 'none',
+                                    transformOrigin: 'center center',
+                                    justifyContent: el.content.align === 'center' ? 'center' : (el.content.align === 'right' ? 'flex-end' : 'flex-start'),
                                 }}
                             >
-                                {coverSubtitle}
-                            </h2>
-                        )}
-                        {coverAuthor && (
-                            <div 
-                                className="absolute w-full text-center"
-                                style={{ 
-                                    bottom: `${bleedPt + 36}px`,
-                                    color: coverTitleColor, 
-                                    fontSize: `${coverTitleSize * 0.3}px`,
-                                    fontFamily: coverTitleFont === 'Modern Sans' ? 'sans-serif' : 'monospace',
-                                }}
-                            >
-                                {coverAuthor}
+                                <span
+                                    style={{
+                                        color: el.content.color || '#000000',
+                                        fontSize: `${el.content.fontSize ?? 12}px`,
+                                        fontFamily: el.content.fontFamily === 'Modern Sans' ? 'sans-serif' : 'monospace',
+                                        fontWeight: 'bold',
+                                        textAlign: el.content.align as any,
+                                        whiteSpace: isSpine ? 'nowrap' : 'normal',
+                                        lineHeight: 1.1
+                                    }}
+                                >
+                                    {el.content.text}
+                                </span>
                             </div>
-                        )}
-                    </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
