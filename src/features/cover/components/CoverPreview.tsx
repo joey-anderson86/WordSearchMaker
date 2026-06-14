@@ -6,11 +6,12 @@ import { pdf } from '@react-pdf/renderer';
 import { CoverDocument } from '../CoverDocument';
 
 export function CoverPreview() {
+    const coverState = useStore();
     const {
         pageSize, pages, includeSolutions,
         coverBgImage, coverBgColor, coverTitle, coverSubtitle,
         coverAuthor, coverSpineText, coverTitleFont, coverTitleColor, coverTitleSize
-    } = useStore();
+    } = coverState;
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
@@ -45,19 +46,17 @@ export function CoverPreview() {
     }, [totalWidth, totalHeight]);
 
     const handleExport = async () => {
+        // Find trim size (no bleed dims)
+        const trimDims = getPageDimensions(pageSize.replace("_BLEED", "_NO_BLEED"));
+        const trimWidthInches = trimDims.width / 72;
+        const trimHeightInches = trimDims.height / 72;
+
         const blob = await pdf(
             <CoverDocument 
-                pageSize={pageSize}
+                coverState={coverState}
                 pageCount={totalPages}
-                bgImage={coverBgImage}
-                bgColor={coverBgColor}
-                title={coverTitle}
-                subtitle={coverSubtitle}
-                author={coverAuthor}
-                spineText={coverSpineText}
-                titleFont={coverTitleFont}
-                titleColor={coverTitleColor}
-                titleSize={coverTitleSize}
+                trimWidth={trimWidthInches}
+                trimHeight={trimHeightInches}
             />
         ).toBlob();
         

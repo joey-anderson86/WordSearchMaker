@@ -44,7 +44,7 @@ pub fn generate_word_search(
     let mut unplaced_words: Vec<String> = Vec::new();
 
     // (dx, dy)
-    let directions = match difficulty.unwrap_or(crate::models::Difficulty::Medium) {
+    let directions = match difficulty.clone().unwrap_or(crate::models::Difficulty::Medium) {
         crate::models::Difficulty::Kids => vec![
             (1, 0),  // Horizontal forward
             (0, 1),  // Vertical forward
@@ -163,6 +163,7 @@ pub fn generate_word_search(
         title: "Word Search".to_string(),
         grid: final_grid,
         specific_data: PuzzleSpecificData::WordSearch(WordSearchData {
+            difficulty: difficulty.clone(),
             word_bank: words,
             unplaced_words,
             solutions,

@@ -314,7 +314,7 @@ export function RightPanel() {
                 <label className="text-[10px] font-semibold text-slate-400">Solutions Per Page</label>
                 <select
                   value={solutionsPerPage || 1}
-                  onChange={(e) => setSolutionsPerPage(parseInt(e.target.value))}
+                  onChange={(e) => setSolutionsPerPage(parseInt(e.target.value) as any)}
                   className="bg-slate-800 border border-slate-750 rounded-lg p-2 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500"
                 >
                   <option value="1">1 Solution</option>

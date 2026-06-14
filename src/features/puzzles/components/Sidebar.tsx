@@ -131,6 +131,7 @@ export function Sidebar() {
           width: 15,
           height: 15,
           words: wordList,
+          difficulty: "medium",
         });
 
         result.title = `Puzzle ${puzzles.length + 1}: ${theme.name}`;
@@ -275,6 +276,7 @@ export function Sidebar() {
         width: editWidth,
         height: editHeight,
         words: wordList,
+        difficulty: (selectedPuzzle.specificData.data as any).difficulty || "medium",
       });
 
       // Retain the current ID and modified title
@@ -797,6 +799,31 @@ export function Sidebar() {
               ) : (
                 /* Word Search Editor Panel */
                 <>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-semibold text-slate-400">Difficulty</label>
+                    <select
+                      className="bg-slate-800 border border-slate-750 rounded p-1.5 text-xs focus:ring-1 focus:ring-emerald-500 outline-none text-slate-100 cursor-pointer"
+                      value={(selectedPuzzle.specificData.data as any).difficulty || "medium"}
+                      onChange={(e) => {
+                        updatePuzzle(selectedPuzzle.id, {
+                          ...selectedPuzzle,
+                          specificData: {
+                            ...selectedPuzzle.specificData,
+                            data: {
+                              ...(selectedPuzzle.specificData.data as any),
+                              difficulty: e.target.value
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      <option value="kids">Kids</option>
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+
                   <div className="flex gap-3">
                     <div className="flex flex-col gap-1 w-1/2">
                       <label className="text-[10px] font-semibold text-slate-400 flex justify-between">

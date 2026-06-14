@@ -1,6 +1,9 @@
 import { StateCreator } from 'zustand';
+import { ArtLayer } from '../types/generated/ArtLayer';
 
 export interface CoverState {
+    paperType: "white" | "cream";
+    frontCoverArt: ArtLayer[];
     coverBgImage: string | null;
     coverBgColor: string;
     coverTitle: string;
@@ -11,6 +14,8 @@ export interface CoverState {
     coverTitleColor: string;
     coverTitleSize: number;
     
+    setPaperType: (type: "white" | "cream") => void;
+    setFrontCoverArt: (art: ArtLayer[]) => void;
     setCoverBgImage: (base64: string | null) => void;
     setCoverBgColor: (color: string) => void;
     setCoverTitle: (title: string) => void;
@@ -23,6 +28,8 @@ export interface CoverState {
 }
 
 export const createCoverSlice: StateCreator<any, [], [], CoverState> = (set) => ({
+    paperType: "white",
+    frontCoverArt: [],
     coverBgImage: null,
     coverBgColor: "#1e293b",
     coverTitle: "My Word Search Book",
@@ -33,6 +40,8 @@ export const createCoverSlice: StateCreator<any, [], [], CoverState> = (set) => 
     coverTitleColor: "#ffffff",
     coverTitleSize: 42,
     
+    setPaperType: (paperType) => set({ paperType }),
+    setFrontCoverArt: (frontCoverArt) => set({ frontCoverArt }),
     setCoverBgImage: (coverBgImage) => set({ coverBgImage }),
     setCoverBgColor: (coverBgColor) => set({ coverBgColor }),
     setCoverTitle: (coverTitle) => set({ coverTitle }),

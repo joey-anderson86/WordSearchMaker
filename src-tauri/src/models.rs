@@ -43,6 +43,9 @@ pub struct BulkPuzzleRequest {
 #[derive(Serialize, Deserialize, TS, Debug, Clone)]
 #[ts(export, export_to = "../../src/types/generated/WordSearchData.ts")]
 pub struct WordSearchData {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub difficulty: Option<Difficulty>,
     pub word_bank: Vec<String>,
     pub unplaced_words: Vec<String>,
     pub solutions: Vec<WordPlacement>,

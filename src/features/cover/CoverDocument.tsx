@@ -1,156 +1,171 @@
+import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
-import { getPageDimensions } from '../../types/pageSizes';
-import { fontStyleMap } from '../../utils/fonts';
+import { CoverState } from '../../store/coverSlice';
+import { calculateCoverDimensions } from '../../utils/layoutHelper';
 
-interface CoverDocumentProps {
-    pageSize: string;
-    pageCount: number; // exact number of pages
-    bgImage: string | null;
-    bgColor: string;
-    title: string;
-    subtitle: string;
-    author: string;
-    spineText: string;
-    titleFont: string;
-    titleColor: string;
-    titleSize: number;
+export interface CoverDocumentProps {
+  coverState: CoverState;
+  pageCount: number;
+  trimWidth: number; // in inches, e.g., 8.5
+  trimHeight: number; // in inches, e.g., 11
 }
 
-export function CoverDocument({
-    pageSize,
-    pageCount,
-    bgImage,
-    bgColor,
-    title,
-    subtitle,
-    author,
-    spineText,
-    titleFont,
-    titleColor,
-    titleSize
-}: CoverDocumentProps) {
-    // 1 inch = 72 pt
-    const bleedPt = 0.125 * 72; // 9pt
-    const spineWidthPt = Math.max((pageCount * 0.002252) * 72, 10); // Minimum 10pt for visibility if low page count
-    
-    const dims = getPageDimensions(pageSize);
-    const trimWidth = dims.width;
-    const trimHeight = dims.height;
-    
-    // Total physical size
-    const totalWidth = (trimWidth * 2) + spineWidthPt + (bleedPt * 2);
-    const totalHeight = trimHeight + (bleedPt * 2);
-    
-    const styles = StyleSheet.create({
-        page: {
-            flexDirection: 'row',
-            width: totalWidth,
-            height: totalHeight,
-            backgroundColor: bgColor,
-        },
-        bgImage: {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: totalWidth,
-            height: totalHeight,
-        },
-        backCover: {
-            width: trimWidth + bleedPt,
-            height: totalHeight,
-            position: 'relative',
-        },
-        spine: {
-            width: spineWidthPt,
-            height: totalHeight,
-            justifyContent: 'center',
-            alignItems: 'center',
-            position: 'relative',
-        },
-        frontCover: {
-            width: trimWidth + bleedPt,
-            height: totalHeight,
-            position: 'relative',
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
-        barcodeArea: {
-            position: 'absolute',
-            bottom: bleedPt + 18, // 0.25" = 18pt from trim edge
-            right: 18,
-            // Actually, if we want it bottom-right of the BACK cover, it means near the spine. 
-            // So `right: 18` works because we're inside the `backCover` flex container.
-            width: 144, // 2" = 144pt
-            height: 86.4, // 1.2" = 86.4pt
-            backgroundColor: 'white',
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
-        barcodeText: {
-            fontSize: 8,
-            color: '#666',
-            fontFamily: 'Helvetica',
-        },
-        spineText: {
-            transform: 'rotate(-90deg)',
-            transformOrigin: 'center center',
-            fontSize: 10,
-            color: titleColor,
-            fontFamily: fontStyleMap[titleFont] || 'Helvetica-Bold',
-        },
-        frontTitle: {
-            fontSize: titleSize,
-            color: titleColor,
-            fontFamily: fontStyleMap[titleFont] || 'Helvetica-Bold',
-            textAlign: 'center',
-            marginBottom: 10,
-            paddingHorizontal: 20,
-        },
-        frontSubtitle: {
-            fontSize: titleSize * 0.4,
-            color: titleColor,
-            fontFamily: fontStyleMap[titleFont] || 'Helvetica',
-            textAlign: 'center',
-            marginBottom: 40,
-        },
-        frontAuthor: {
-            fontSize: titleSize * 0.3,
-            color: titleColor,
-            fontFamily: fontStyleMap[titleFont] || 'Helvetica',
-            position: 'absolute',
-            bottom: bleedPt + 36,
-            textAlign: 'center',
-            width: '100%',
-        }
-    });
+export const CoverDocument: React.FC<CoverDocumentProps> = ({
+  coverState,
+  pageCount,
+  trimWidth,
+  trimHeight,
+}) => {
+  const {
+    paperType,
+    coverBgColor,
+    coverTitle,
+    coverSubtitle,
+    coverAuthor,
+    coverSpineText,
+    coverTitleFont,
+    coverTitleColor,
+    coverTitleSize,
+    frontCoverArt,
+    coverBgImage,
+  } = coverState;
 
-    return (
-        <Document>
-            <Page size={[totalWidth, totalHeight]} style={styles.page}>
-                {bgImage && (
-                    <Image src={bgImage} style={styles.bgImage} />
-                )}
-                
-                {/* Back Cover Zone */}
-                <View style={styles.backCover}>
-                    {/* Barcode Reservation Area */}
-                    <View style={styles.barcodeArea}>
-                        <Text style={styles.barcodeText}>Barcode / ISBN</Text>
-                    </View>
-                </View>
-                
-                {/* Spine Zone */}
-                <View style={styles.spine}>
-                    <Text style={styles.spineText}>{spineText}</Text>
-                </View>
-                
-                {/* Front Cover Zone */}
-                <View style={styles.frontCover}>
-                    <Text style={styles.frontTitle}>{title}</Text>
-                    {subtitle && <Text style={styles.frontSubtitle}>{subtitle}</Text>}
-                    {author && <Text style={styles.frontAuthor}>{author}</Text>}
-                </View>
-            </Page>
-        </Document>
-    );
-}
+  const dims = calculateCoverDimensions(trimWidth, trimHeight, pageCount, paperType);
+
+  const styles = StyleSheet.create({
+    page: {
+      width: dims.totalWidthPt,
+      height: dims.totalHeightPt,
+      backgroundColor: coverBgColor,
+      flexDirection: 'row',
+      position: 'relative',
+    },
+    backCover: {
+      width: dims.bleedPt + dims.trimWidthPt,
+      height: '100%',
+      position: 'relative',
+    },
+    spine: {
+      width: dims.spineWidthPt,
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'relative',
+    },
+    frontCover: {
+      width: dims.trimWidthPt + dims.bleedPt,
+      height: '100%',
+      position: 'relative',
+      paddingTop: dims.bleedPt + 72, // 1 inch padding from top trim
+      paddingLeft: 36,
+      paddingRight: dims.bleedPt + 36,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+    },
+    barcodeArea: {
+      position: 'absolute',
+      bottom: dims.bleedPt + 18, // 0.25 inch from bottom trim
+      right: 18, // 0.25 inch from spine fold
+      width: 2 * 72, // 2 inches
+      height: 1.2 * 72, // 1.2 inches
+      backgroundColor: '#ffffff', // Must be white per KDP guidelines
+    },
+    spineTextContainer: {
+      width: dims.totalHeightPt,
+      height: dims.spineWidthPt,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      transform: 'rotate(270deg)', // Rotated 270 degrees per standard KDP
+      transformOrigin: '50% 50%',
+    },
+    spineText: {
+      fontSize: Math.min(12, Math.max(6, dims.spineWidthPt - 9)), // Ensure text fits in spine with 0.0625" (4.5pt) clearance on each side
+      color: coverTitleColor,
+      fontFamily: coverTitleFont === 'Modern Sans' ? 'Helvetica' : 'Helvetica', // Fallback font, update if registering fonts
+      textAlign: 'center',
+    },
+    title: {
+      fontSize: coverTitleSize,
+      color: coverTitleColor,
+      fontFamily: coverTitleFont === 'Modern Sans' ? 'Helvetica' : 'Helvetica', // Fallback font
+      textAlign: 'center',
+      marginBottom: 10,
+    },
+    subtitle: {
+      fontSize: coverTitleSize * 0.5,
+      color: coverTitleColor,
+      fontFamily: coverTitleFont === 'Modern Sans' ? 'Helvetica' : 'Helvetica', // Fallback font
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    author: {
+      fontSize: coverTitleSize * 0.4,
+      color: coverTitleColor,
+      fontFamily: coverTitleFont === 'Modern Sans' ? 'Helvetica' : 'Helvetica', // Fallback font
+      textAlign: 'center',
+      marginTop: 'auto', // push to bottom
+      marginBottom: dims.bleedPt + 72,
+    },
+    bgImage: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: dims.totalWidthPt,
+      height: dims.totalHeightPt,
+      zIndex: -1,
+    },
+  });
+
+  return (
+    <Document>
+      <Page size={[dims.totalWidthPt, dims.totalHeightPt]} style={styles.page}>
+        {/* Global Background Image */}
+        {coverBgImage && (
+          <Image src={coverBgImage} style={styles.bgImage} />
+        )}
+
+        {/* Back Cover Zone */}
+        <View style={styles.backCover}>
+          {/* 2" x 1.2" KDP Barcode Safe Area */}
+          <View style={styles.barcodeArea} />
+        </View>
+
+        {/* Spine Zone */}
+        <View style={styles.spine}>
+          {/* Ensure spine is wide enough for text (typically >100 pages, but we clamp size) */}
+          <View style={styles.spineTextContainer}>
+            <Text style={styles.spineText}>{coverSpineText}</Text>
+          </View>
+        </View>
+
+        {/* Front Cover Zone */}
+        <View style={styles.frontCover}>
+          <Text style={styles.title}>{coverTitle}</Text>
+          {coverSubtitle && <Text style={styles.subtitle}>{coverSubtitle}</Text>}
+          
+          {/* Front Cover Art Layers */}
+          {frontCoverArt.map((art) => (
+             <Image
+               key={art.id}
+               src={art.url}
+               style={{
+                 position: 'absolute',
+                 left: art.x + dims.bleedPt, // Relative to front cover trim edge
+                 top: art.y + dims.bleedPt,
+                 width: art.width,
+                 height: art.height,
+                 opacity: art.opacity ?? 1,
+               }}
+             />
+          ))}
+
+          <Text style={styles.author}>{coverAuthor}</Text>
+        </View>
+      </Page>
+    </Document>
+  );
+};

@@ -16,3 +16,10 @@ export function getPageDimensions(size: string): PageDimension {
   const norm = size.toUpperCase();
   return PAGE_SIZES[norm] || PAGE_SIZES["A4"];
 }
+
+export const KDP_PAPER_THICKNESS = {
+  white: 0.002252,
+  cream: 0.0025,
+};
+
+export const KDP_COVER_BLEED = 0.125;

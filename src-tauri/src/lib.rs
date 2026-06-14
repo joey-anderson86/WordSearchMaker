@@ -7,8 +7,8 @@ use models::{PuzzlePayload, BulkPuzzleRequest};
 use tauri::AppHandle;
 
 #[tauri::command]
-fn generate_puzzle(width: usize, height: usize, words: Vec<String>) -> Result<PuzzlePayload, AppError> {
-    Ok(word_search_engine::generate_word_search(width, height, words, None, None, None))
+fn generate_puzzle(width: usize, height: usize, words: Vec<String>, difficulty: Option<models::Difficulty>) -> Result<PuzzlePayload, AppError> {
+    Ok(word_search_engine::generate_word_search(width, height, words, difficulty, None, None))
 }
 
 #[tauri::command]

@@ -1,7 +1,7 @@
 import { PageState } from "../types/generated/PageState";
 import { PuzzlePayload } from "../types/generated/PuzzlePayload";
 import { GridElement } from "../types/generated/GridElement";
-import { getPageDimensions } from "../types/pageSizes";
+import { getPageDimensions, KDP_PAPER_THICKNESS, KDP_COVER_BLEED } from "../types/pageSizes";
 
 /**
  * Chunk an array into smaller arrays of a specified size.
@@ -260,5 +260,35 @@ export function scalePageLayout(page: PageState, oldSize: string, newSize: strin
     gridLayout: scaledLayout,
     artLayers: scaledArt,
     margin: scaledMargin
+  };
+}
+
+/**
+ * Calculate the exact Cover dimensions (Back + Spine + Front) for KDP.
+ * Measurements are converted from inches to points (1 inch = 72 pt) for PDF rendering.
+ */
+export function calculateCoverDimensions(
+  trimWidth: number, // in inches
+  trimHeight: number, // in inches
+  pageCount: number,
+  paperType: "white" | "cream" = "white"
+) {
+  const thickness = KDP_PAPER_THICKNESS[paperType];
+  const spineWidthInches = Math.max(pageCount * thickness, 0.1); // min spine width
+  
+  // Total Width = Bleed + BackCover + Spine + FrontCover + Bleed
+  const totalWidthInches = KDP_COVER_BLEED + trimWidth + spineWidthInches + trimWidth + KDP_COVER_BLEED;
+  // Total Height = Bleed + TrimHeight + Bleed
+  const totalHeightInches = KDP_COVER_BLEED + trimHeight + KDP_COVER_BLEED;
+
+  const PTS_PER_INCH = 72;
+
+  return {
+    totalWidthPt: totalWidthInches * PTS_PER_INCH,
+    totalHeightPt: totalHeightInches * PTS_PER_INCH,
+    spineWidthPt: spineWidthInches * PTS_PER_INCH,
+    trimWidthPt: trimWidth * PTS_PER_INCH,
+    trimHeightPt: trimHeight * PTS_PER_INCH,
+    bleedPt: KDP_COVER_BLEED * PTS_PER_INCH,
   };
 }
