@@ -12,6 +12,11 @@ export function CoverPreview() {
         coverBgImage, coverBgColor, coverElements, coverArtLayers
     } = coverState;
 
+    const selectedCoverElementId = useStore((state) => state.selectedCoverElementId);
+    const setSelectedCoverElementId = useStore((state) => state.setSelectedCoverElementId);
+    const updateCoverElement = useStore((state) => state.updateCoverElement);
+    const updateCoverArtLayer = useStore((state) => state.updateCoverArtLayer);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
 
@@ -69,6 +74,85 @@ export function CoverPreview() {
         URL.revokeObjectURL(url);
     };
 
+    const handleDragMouseDown = (
+        e: React.MouseEvent,
+        elementId: string,
+        startX: number,
+        startY: number,
+        elementType: "grid" | "art"
+    ) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelectedCoverElementId(elementId);
+
+        const initialMouseX = e.clientX;
+        const initialMouseY = e.clientY;
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            const deltaX = (moveEvent.clientX - initialMouseX) / scale;
+            const deltaY = (moveEvent.clientY - initialMouseY) / scale;
+
+            let newX = startX + deltaX;
+            let newY = startY + deltaY;
+
+            newX = Math.round(Math.max(0, newX) * 10) / 10;
+            newY = Math.round(Math.max(0, newY) * 10) / 10;
+
+            if (elementType === "grid") {
+                updateCoverElement(elementId, { x: newX, y: newY });
+            } else {
+                updateCoverArtLayer(elementId, { x: newX, y: newY });
+            }
+        };
+
+        const onMouseUp = () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+        };
+
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
+    };
+
+    const handleResizeMouseDown = (
+        e: React.MouseEvent,
+        elementId: string,
+        startW: number,
+        startH: number,
+        elementType: "grid" | "art"
+    ) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const initialMouseX = e.clientX;
+        const initialMouseY = e.clientY;
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            const deltaX = (moveEvent.clientX - initialMouseX) / scale;
+            const deltaY = (moveEvent.clientY - initialMouseY) / scale;
+
+            let newW = startW + deltaX;
+            let newH = startH + deltaY;
+
+            newW = Math.round(Math.max(20, newW) * 10) / 10;
+            newH = Math.round(Math.max(20, newH) * 10) / 10;
+
+            if (elementType === "grid") {
+                updateCoverElement(elementId, { width: newW, height: newH });
+            } else {
+                updateCoverArtLayer(elementId, { width: newW, height: newH });
+            }
+        };
+
+        const onMouseUp = () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+        };
+
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
+    };
+
     return (
         <div className="flex-1 flex flex-col min-w-0 bg-slate-950">
             {/* Header Toolbar */}
@@ -90,6 +174,7 @@ export function CoverPreview() {
             <div 
                 className="flex-1 min-h-0 p-6 flex items-center justify-center overflow-hidden" 
                 ref={containerRef}
+                onClick={() => setSelectedCoverElementId(null)}
             >
                 <div 
                     className="shadow-2xl relative flex-shrink-0 border border-slate-700 overflow-hidden"
@@ -155,30 +240,48 @@ export function CoverPreview() {
                     </div>
 
                     {/* Art Layers */}
-                    {coverArtLayers.map(layer => (
-                        <img
+                    {coverArtLayers.map(layer => {
+                        const isSelected = selectedCoverElementId === layer.id;
+                        return (
+                        <div
                             key={layer.id}
-                            src={layer.url}
-                            alt="Art layer"
-                            className="absolute pointer-events-none"
+                            className={`absolute group cursor-move ${isSelected ? "ring-2 ring-emerald-500 ring-offset-1" : "hover:ring-1 hover:ring-slate-300"}`}
                             style={{
                                 left: `${layer.x}px`,
                                 top: `${layer.y}px`,
                                 width: `${layer.width}px`,
                                 height: `${layer.height}px`,
+                                zIndex: layer.zIndex ?? 1,
                                 opacity: layer.opacity ?? 1,
-                                zIndex: layer.zIndex ?? 1
                             }}
-                        />
-                    ))}
+                            onMouseDown={(e) => handleDragMouseDown(e, layer.id, layer.x, layer.y, "art")}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCoverElementId(layer.id);
+                            }}
+                        >
+                            <img
+                                src={layer.url}
+                                alt="Art layer"
+                                className="w-full h-full object-contain pointer-events-none"
+                            />
+                            {isSelected && (
+                                <div
+                                    className="absolute right-[-4px] bottom-[-4px] w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow cursor-se-resize z-50 hover:scale-125 transition-transform"
+                                    onMouseDown={(e) => handleResizeMouseDown(e, layer.id, layer.width, layer.height, "art")}
+                                />
+                            )}
+                        </div>
+                    )})}
 
                     {/* Text Elements */}
                     {coverElements.map(el => {
                         const isSpine = el.type === 'spine';
+                        const isSelected = selectedCoverElementId === el.id;
                         return (
                             <div
                                 key={el.id}
-                                className="absolute flex items-center pointer-events-none"
+                                className={`absolute flex items-center group cursor-move ${isSelected ? "ring-2 ring-emerald-500 ring-offset-1" : "hover:ring-1 hover:ring-slate-355"}`}
                                 style={{
                                     left: `${el.x}px`,
                                     top: `${el.y}px`,
@@ -189,8 +292,14 @@ export function CoverPreview() {
                                     transformOrigin: 'center center',
                                     justifyContent: el.content.align === 'center' ? 'center' : (el.content.align === 'right' ? 'flex-end' : 'flex-start'),
                                 }}
+                                onMouseDown={(e) => handleDragMouseDown(e, el.id, el.x, el.y, "grid")}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedCoverElementId(el.id);
+                                }}
                             >
                                 <span
+                                    className="pointer-events-none w-full"
                                     style={{
                                         color: el.content.color || '#000000',
                                         fontSize: `${el.content.fontSize ?? 12}px`,
@@ -203,6 +312,12 @@ export function CoverPreview() {
                                 >
                                     {el.content.text}
                                 </span>
+                                {isSelected && (
+                                    <div
+                                        className="absolute right-[-4px] bottom-[-4px] w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow cursor-se-resize z-50 hover:scale-125 transition-transform"
+                                        onMouseDown={(e) => handleResizeMouseDown(e, el.id, el.width, el.height, "grid")}
+                                    />
+                                )}
                             </div>
                         );
                     })}

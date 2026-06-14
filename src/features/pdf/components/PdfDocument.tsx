@@ -216,7 +216,7 @@ const renderPdfPage = (
       )}
 
       {/* 1. Render Art Layers */}
-      {page.artLayers.map((layer) => (
+      {(page.artLayers || []).map((layer) => (
         <Image
           key={layer.id}
           src={layer.url}
@@ -228,13 +228,13 @@ const renderPdfPage = (
             height: layer.height,
             zIndex: layer.zIndex ?? 1,
             opacity: layer.opacity ?? 1,
-            transform: (layer as any).rotation ? `rotate(${(layer as any).rotation}deg)` : 'none',
+            transform: (layer as any).rotation ? `rotate(${(layer as any).rotation}deg)` : undefined,
           }}
         />
       ))}
 
       {/* 2. Render Grid Elements */}
-      {page.gridLayout.map((el) => {
+      {(page.gridLayout || []).map((el) => {
         if (el.type === "title") {
           const fontFamily = globalTheme?.fontProperties?.titleFont || el.content.fontFamily;
           const textFontFamily = fontStyleMap[fontFamily] || 'Helvetica-Bold';
@@ -262,7 +262,7 @@ const renderPdfPage = (
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
-                transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
+                transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : undefined,
               }}
             >
               <Text style={{ fontFamily: textFontFamily, color: color, fontSize: size, textAlign: align as any, letterSpacing: el.content.letterSpacing ?? 0 }}>
@@ -283,6 +283,8 @@ const renderPdfPage = (
           const ideThemeSetting = el.content.ideTheme ?? false;
           const letterTrackingSetting = el.content.letterTracking ?? 0;
           const solutionStyleSetting = el.content.solutionStyle || "Greyscale Mute";
+          const solutionOverlayBehind = el.content.solutionOverlayBehind ?? true;
+          const hideSolutionGridBorders = el.content.hideSolutionGridBorders ?? false;
           const gridFontFamily = fontStyleMap[gridFont] || 'Helvetica-Bold';
 
           const marginBottom = page.margin?.bottom ?? 50;
@@ -328,7 +330,7 @@ const renderPdfPage = (
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
+                transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : undefined,
               }}
             >
               <View style={[
@@ -351,10 +353,9 @@ const renderPdfPage = (
                   </View>
                 )}
 
-                {/* WS Pill Outlines Overlay */}
-                {!isSudoku && !isCrossword && drawSolutions && solutionStyleSetting === "Pill Outlines" && (
+                {!isSudoku && !isCrossword && drawSolutions && solutionStyleSetting === "Pill Outlines" && solutionOverlayBehind && (
                   <Svg width={gridWidth} height={gridHeight} style={[styles.svgOverlay, { left: ideThemeSetting ? 12 : 0, top: ideThemeSetting ? 24 : 0 }]}>
-                    {(activePuzzle.specificData.data as any).solutions.map((sol: any, index: number) => {
+                    {((activePuzzle.specificData.data as any).solutions || []).map((sol: any, index: number) => {
                       const x1 = sol.start_x * step + cellSize / 2;
                       const y1 = sol.start_y * step + cellSize / 2;
                       const x2 = sol.end_x * step + cellSize / 2;
@@ -413,6 +414,8 @@ const renderPdfPage = (
                         let cellBorders: any = {};
                         if (isMaskNull) {
                           cellBorders = { borderWidth: 0, borderColor: 'transparent' };
+                        } else if (!isSudoku && !isCrossword && drawSolutions && hideSolutionGridBorders) {
+                          cellBorders = { borderWidth: 0, borderColor: 'transparent' };
                         } else if (isSudoku) {
                           const borderTop = rIdx % 3 === 0 && rIdx !== 0 ? 2.5 : 0.5;
                           const borderLeft = cIdx % 3 === 0 && cIdx !== 0 ? 2.5 : 0.5;
@@ -469,13 +472,15 @@ const renderPdfPage = (
                                 height: cellSize,
                                 backgroundColor: isMaskNull 
                                   ? 'transparent'
-                                  : isBlack 
-                                    ? '#1e293b' 
-                                    : isSudoku 
-                                      ? cell !== null ? '#ffffff' : (drawSolutions ? '#f5f3ff' : '#ffffff')
-                                      : isCrossword
-                                        ? '#ffffff'
-                                        : ideThemeSetting ? 'transparent' : '#ffffff',
+                                  : (!isSudoku && !isCrossword && drawSolutions && hideSolutionGridBorders)
+                                    ? 'transparent'
+                                    : isBlack 
+                                      ? '#1e293b' 
+                                      : isSudoku 
+                                        ? cell !== null ? '#ffffff' : (drawSolutions ? '#f5f3ff' : '#ffffff')
+                                        : isCrossword
+                                          ? '#ffffff'
+                                          : ideThemeSetting ? 'transparent' : '#ffffff',
                                 position: 'relative'
                               }
                             ]}
@@ -514,6 +519,39 @@ const renderPdfPage = (
                     </View>
                   ))}
                 </View>
+
+                {!isSudoku && !isCrossword && drawSolutions && solutionStyleSetting === "Pill Outlines" && !solutionOverlayBehind && (
+                  <Svg width={gridWidth} height={gridHeight} style={[styles.svgOverlay, { left: ideThemeSetting ? 12 : 0, top: ideThemeSetting ? 24 : 0 }]}>
+                    {((activePuzzle.specificData.data as any).solutions || []).map((sol: any, index: number) => {
+                      const x1 = sol.start_x * step + cellSize / 2;
+                      const y1 = sol.start_y * step + cellSize / 2;
+                      const x2 = sol.end_x * step + cellSize / 2;
+                      const y2 = sol.end_y * step + cellSize / 2;
+                      const dx = x2 - x1;
+                      const dy = y2 - y1;
+                      const L = Math.sqrt(dx * dx + dy * dy);
+                      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                      const hHeight = cellSize * 1.0;
+                      const hRadius = hHeight / 2;
+
+                      return (
+                        <Rect
+                          key={index}
+                          x={x1 - hRadius}
+                          y={y1 - hRadius}
+                          width={L + hHeight}
+                          height={hHeight}
+                          rx={hRadius}
+                          ry={hRadius}
+                          transform={`rotate(${angle}, ${x1}, ${y1})`}
+                          stroke="#ef4444"
+                          strokeWidth={1.5}
+                          fill="none"
+                        />
+                      );
+                    })}
+                  </Svg>
+                )}
               </View>
             </View>
           );
@@ -565,7 +603,7 @@ const renderPdfPage = (
                     width: el.width,
                     height: el.height,
                     zIndex: el.zIndex ?? 10,
-                    transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
+                    transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : undefined,
                   }
                 ]}
               >
@@ -633,7 +671,7 @@ const renderPdfPage = (
                     width: el.width,
                     height: el.height,
                     zIndex: el.zIndex ?? 10,
-                    transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
+                    transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : undefined,
                   }
                 ]}
               >
@@ -665,7 +703,7 @@ const renderPdfPage = (
                     height: el.height,
                     zIndex: el.zIndex ?? 10,
                     padding: 8,
-                    transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
+                    transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : undefined,
                   }
                 ]}
               >
@@ -789,6 +827,8 @@ const renderMiniSolutionGrid = (page: PageState, width: number, height: number) 
 
   const gridFont = gridEl.content.gridFont || activePuzzle.gridFont || "Modern Sans";
   const solutionStyleSetting = gridEl.content.solutionStyle || "Greyscale Mute";
+  const solutionOverlayBehind = gridEl.content.solutionOverlayBehind ?? true;
+  const hideSolutionGridBorders = gridEl.content.hideSolutionGridBorders ?? false;
   const gridFontFamily = fontStyleMap[gridFont] || 'Helvetica-Bold';
 
   const gapOffset = isSudoku || isCrossword ? 0 : (cols > 20 || rows > 20 ? 1 : 2);
@@ -809,9 +849,9 @@ const renderMiniSolutionGrid = (page: PageState, width: number, height: number) 
         </Text>
       )}
       <View style={[styles.gridOuter, { width: gridWidth + 3, height: gridHeight + 3, borderColor: '#475569', borderWidth: 1 }]}>
-        {!isSudoku && !isCrossword && solutionStyleSetting === "Pill Outlines" && (
+        {!isSudoku && !isCrossword && solutionStyleSetting === "Pill Outlines" && solutionOverlayBehind && (
           <Svg width={gridWidth} height={gridHeight} style={styles.svgOverlay}>
-            {(activePuzzle.specificData.data as any).solutions.map((sol: any, index: number) => {
+            {((activePuzzle.specificData.data as any).solutions || []).map((sol: any, index: number) => {
               const x1 = sol.start_x * step + cellSize / 2;
               const y1 = sol.start_y * step + cellSize / 2;
               const x2 = sol.end_x * step + cellSize / 2;
@@ -869,6 +909,8 @@ const renderMiniSolutionGrid = (page: PageState, width: number, height: number) 
                 let cellBorders: any = {};
                 if (isMaskNull) {
                   cellBorders = { borderWidth: 0, borderColor: 'transparent' };
+                } else if (!isSudoku && !isCrossword && hideSolutionGridBorders) {
+                  cellBorders = { borderWidth: 0, borderColor: 'transparent' };
                 } else if (isSudoku) {
                   const borderTop = rIdx % 3 === 0 && rIdx !== 0 ? 1.5 : 0.5;
                   const borderLeft = cIdx % 3 === 0 && cIdx !== 0 ? 1.5 : 0.5;
@@ -919,11 +961,13 @@ const renderMiniSolutionGrid = (page: PageState, width: number, height: number) 
                         height: cellSize,
                         backgroundColor: isMaskNull 
                           ? 'transparent'
-                          : isBlack 
-                            ? '#1e293b' 
-                            : isSudoku && isSolutionValue
-                              ? '#f5f3ff'
-                              : '#ffffff'
+                          : (!isSudoku && !isCrossword && hideSolutionGridBorders)
+                            ? 'transparent'
+                            : isBlack 
+                              ? '#1e293b' 
+                              : isSudoku && isSolutionValue
+                                ? '#f5f3ff'
+                                : '#ffffff'
                       }
                     ]}
                   >
@@ -946,6 +990,39 @@ const renderMiniSolutionGrid = (page: PageState, width: number, height: number) 
             </View>
           ))}
         </View>
+
+        {!isSudoku && !isCrossword && solutionStyleSetting === "Pill Outlines" && !solutionOverlayBehind && (
+          <Svg width={gridWidth} height={gridHeight} style={styles.svgOverlay}>
+            {((activePuzzle.specificData.data as any).solutions || []).map((sol: any, index: number) => {
+              const x1 = sol.start_x * step + cellSize / 2;
+              const y1 = sol.start_y * step + cellSize / 2;
+              const x2 = sol.end_x * step + cellSize / 2;
+              const y2 = sol.end_y * step + cellSize / 2;
+              const dx = x2 - x1;
+              const dy = y2 - y1;
+              const L = Math.sqrt(dx * dx + dy * dy);
+              const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+              const hHeight = cellSize * 1.0;
+              const hRadius = hHeight / 2;
+
+              return (
+                <Rect
+                  key={index}
+                  x={x1 - hRadius}
+                  y={y1 - hRadius}
+                  width={L + hHeight}
+                  height={hHeight}
+                  rx={hRadius}
+                  ry={hRadius}
+                  transform={`rotate(${angle}, ${x1}, ${y1})`}
+                  stroke="#ef4444"
+                  strokeWidth={1}
+                  fill="none"
+                />
+              );
+            })}
+          </Svg>
+        )}
       </View>
     </View>
   );

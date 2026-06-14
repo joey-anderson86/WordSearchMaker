@@ -23,7 +23,7 @@ tauri = { version = "=2.11.2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "=1.0.210", features = ["derive"] }
 serde_json = { version = "=1.0.128" }
-ts-rs = { version = "10.0", features = ["format"] }
+ts-rs = { version = "10.0", features = ["format", "serde-json-impl"] }
 rand = "0.8"
 uuid = { version = "1.11.0", features = ["v4"] }
 tauri-plugin-fs = "2"

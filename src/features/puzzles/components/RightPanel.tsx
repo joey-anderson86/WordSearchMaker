@@ -122,7 +122,7 @@ export function RightPanel() {
   const selectedArtLayer = currentArtLayers.find(l => l.id === currentSelectedId);
 
   // Position and Dimension edits
-  const handleLayoutEdit = (key: 'x' | 'y' | 'width' | 'height', val: number) => {
+  const handleLayoutEdit = (key: 'x' | 'y' | 'width' | 'height' | 'rotation', val: number) => {
     if (selectedElement) {
       if (isCover) {
         updateCoverElement(selectedElement.id, { [key]: val });
@@ -594,6 +594,32 @@ export function RightPanel() {
                     <option value="Greyscale Mute" className="bg-slate-800">Greyscale Mute (Dim Filler Letters)</option>
                     <option value="Pill Outlines" className="bg-slate-800">Pill Outlines (Uniform Capsule)</option>
                   </select>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="grid-solution-overlay-behind"
+                    checked={selectedElement.content.solutionOverlayBehind ?? true}
+                    onChange={(e) => handleContentEdit("grid", { solutionOverlayBehind: e.target.checked })}
+                    className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 bg-slate-800 border-slate-700 accent-purple-500 cursor-pointer"
+                  />
+                  <label htmlFor="grid-solution-overlay-behind" className="text-xs font-semibold text-slate-300 cursor-pointer select-none">
+                    Draw Solution Overlay Behind Letters
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="grid-hide-solution-grid-borders"
+                    checked={selectedElement.content.hideSolutionGridBorders ?? false}
+                    onChange={(e) => handleContentEdit("grid", { hideSolutionGridBorders: e.target.checked })}
+                    className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 bg-slate-800 border-slate-700 accent-purple-500 cursor-pointer"
+                  />
+                  <label htmlFor="grid-hide-solution-grid-borders" className="text-xs font-semibold text-slate-300 cursor-pointer select-none">
+                    Hide Grid Background/Borders in Solutions
+                  </label>
                 </div>
               </>
             )}

@@ -442,6 +442,8 @@ export function Preview() {
       const ideThemeSetting = el.content.ideTheme ?? false;
       const letterTrackingSetting = el.content.letterTracking ?? 0;
       const solutionStyleSetting = el.content.solutionStyle || "Greyscale Mute";
+      const solutionOverlayBehind = el.content.solutionOverlayBehind ?? true;
+      const hideSolutionGridBorders = el.content.hideSolutionGridBorders ?? false;
       
       const gridFontFamily = fontStyleMap[gridFont];
       
@@ -508,7 +510,9 @@ export function Preview() {
                 }
 
                 let cellBorders = "";
-                if (isSudoku) {
+                if (!isSudoku && !isCrossword && showSolutions && hideSolutionGridBorders) {
+                  cellBorders = "border-0";
+                } else if (isSudoku) {
                   const topBorder = y % 3 === 0 ? "border-t-[3px] border-t-slate-700" : "border-t border-t-slate-200";
                   const leftBorder = x % 3 === 0 ? "border-l-[3px] border-l-slate-700" : "border-l border-l-slate-200";
                   const bottomBorder = y === 8 ? "border-b-[3px] border-b-slate-700" : "";
@@ -552,19 +556,22 @@ export function Preview() {
                   <div 
                     key={`${x}-${y}`} 
                     className={`relative flex items-center justify-center cursor-default ${cellBorders} ${charClass} ${
-                      isSudoku 
-                        ? isSolutionValue 
-                          ? "text-indigo-650 bg-indigo-50/40" 
-                          : "text-slate-900 font-extrabold bg-white"
-                        : isCrossword
-                          ? isBlackCell
-                            ? "bg-slate-800"
-                            : isSolutionValue
-                              ? "text-indigo-650 bg-indigo-50/20 font-extrabold"
-                              : "bg-white"
-                          : "rounded hover:bg-slate-100"
+                      (!isSudoku && !isCrossword && showSolutions && hideSolutionGridBorders)
+                        ? "bg-transparent"
+                        : isSudoku 
+                          ? isSolutionValue 
+                            ? "text-indigo-650 bg-indigo-50/40" 
+                            : "text-slate-900 font-extrabold bg-white"
+                          : isCrossword
+                            ? isBlackCell
+                              ? "bg-slate-800"
+                              : isSolutionValue
+                                ? "text-indigo-650 bg-indigo-50/20 font-extrabold"
+                                : "bg-white"
+                            : "rounded hover:bg-slate-100"
                     }`}
                     style={{
+                      zIndex: 10,
                       width: `${cellSize}px`,
                       height: `${cellSize}px`,
                       fontSize: `${fontSize}px`,
@@ -595,11 +602,11 @@ export function Preview() {
                   top: 0,
                   width: `${gridWidth}px`,
                   height: `${gridHeight}px`,
-                  zIndex: 50,
+                  zIndex: solutionOverlayBehind ? 0 : 50,
                 }}
                 viewBox={`0 0 ${gridWidth} ${gridHeight}`}
               >
-                {(activePuzzle.specificData.data as any).solutions.map((sol: any, index: number) => {
+                {((activePuzzle.specificData.data as any).solutions || []).map((sol: any, index: number) => {
                   const x1 = sol.start_x * step + cellSize / 2;
                   const y1 = sol.start_y * step + cellSize / 2;
                   const x2 = sol.end_x * step + cellSize / 2;

@@ -9,4 +9,5 @@ export type GridElement = {
   width: number;
   height: number;
   zIndex: number;
+  rotation?: number;
 };
