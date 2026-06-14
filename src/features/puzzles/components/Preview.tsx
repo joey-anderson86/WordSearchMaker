@@ -429,14 +429,15 @@ export function Preview() {
             </div>
           )}
           <div 
-            className="grid select-none"
+            className="grid select-none relative"
             style={{ 
               fontFamily: gridFontFamily,
               gridTemplateColumns: `repeat(${cols || 1}, minmax(0, 1fr))`,
               gap: `${gapOffset}px`,
               width: `${gridWidth}px`,
               height: `${gridHeight}px`,
-              border: isSudoku || isCrossword ? "3px solid #334155" : "none",
+              border: isSudoku || isCrossword ? "3px solid #334155" : "2px solid #475569",
+              boxSizing: "content-box",
             }}
           >
             {activePuzzle.grid.map((row, y) => (
@@ -539,80 +540,78 @@ export function Preview() {
                 );
               })
             ))}
-          </div>
+            {/* Solutions Circle SVG Overlay */}
+            {!isSudoku && !isCrossword && showSolutions && (
+              <svg 
+                className="absolute pointer-events-none"
+                style={{ 
+                  overflow: "visible",
+                  left: 0,
+                  top: 0,
+                  width: `${gridWidth}px`,
+                  height: `${gridHeight}px`,
+                  zIndex: 50,
+                }}
+                viewBox={`0 0 ${gridWidth} ${gridHeight}`}
+              >
+                {(activePuzzle.specificData.data as any).solutions.map((sol: any, index: number) => {
+                  const x1 = sol.start_x * step + cellSize / 2;
+                  const y1 = sol.start_y * step + cellSize / 2;
+                  const x2 = sol.end_x * step + cellSize / 2;
+                  const y2 = sol.end_y * step + cellSize / 2;
+                  const dx = x2 - x1;
+                  const dy = y2 - y1;
+                  const L = Math.sqrt(dx * dx + dy * dy);
+                  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                  const isHovered = hoveredWord === sol.word;
+                  const isAnyHovered = hoveredWord !== null;
 
-          {/* Solutions Circle SVG Overlay */}
-          {!isSudoku && !isCrossword && showSolutions && (
-            <svg 
-              className="absolute pointer-events-none"
-              style={{ 
-                overflow: "visible",
-                left: ideThemeSetting ? "16px" : "0px",
-                top: ideThemeSetting ? "40px" : "0px",
-                width: `${gridWidth}px`,
-                height: `${gridHeight}px`,
-                zIndex: 50,
-              }}
-              viewBox={`0 0 ${gridWidth} ${gridHeight}`}
-            >
-              {(activePuzzle.specificData.data as any).solutions.map((sol: any, index: number) => {
-                const x1 = sol.start_x * step + cellSize / 2;
-                const y1 = sol.start_y * step + cellSize / 2;
-                const x2 = sol.end_x * step + cellSize / 2;
-                const y2 = sol.end_y * step + cellSize / 2;
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                const L = Math.sqrt(dx * dx + dy * dy);
-                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-                const isHovered = hoveredWord === sol.word;
-                const isAnyHovered = hoveredWord !== null;
+                  const hHeight = cellSize * 1.125;
+                  const hRadius = hHeight / 2;
+                  const hoverHeight = hHeight + 8;
+                  const hoverRadius = hoverHeight / 2;
 
-                const hHeight = cellSize * 1.125;
-                const hRadius = hHeight / 2;
-                const hoverHeight = hHeight + 8;
-                const hoverRadius = hoverHeight / 2;
-
-                return (
-                  <g 
-                    key={index}
-                    className="pointer-events-auto cursor-pointer"
-                    onMouseEnter={() => setHoveredWord(sol.word)}
-                    onMouseLeave={() => setHoveredWord(null)}
-                  >
-                    <rect
-                      x={x1 - hoverRadius}
-                      y={y1 - hoverRadius}
-                      width={L + hoverHeight}
-                      height={hoverHeight}
-                      rx={hoverRadius}
-                      ry={hoverRadius}
-                      transform={`rotate(${angle}, ${x1}, ${y1})`}
-                      fill="transparent"
-                    />
-                    {(solutionStyleSetting === "Pill Outlines" || isHovered) && (
+                  return (
+                    <g 
+                      key={index}
+                      className="pointer-events-auto cursor-pointer"
+                      onMouseEnter={() => setHoveredWord(sol.word)}
+                      onMouseLeave={() => setHoveredWord(null)}
+                    >
                       <rect
-                        x={x1 - hRadius}
-                        y={y1 - hRadius}
-                        width={L + hHeight}
-                        height={hHeight}
-                        rx={hRadius}
-                        ry={hRadius}
+                        x={x1 - hoverRadius}
+                        y={y1 - hoverRadius}
+                        width={L + hoverHeight}
+                        height={hoverHeight}
+                        rx={hoverRadius}
+                        ry={hoverRadius}
                         transform={`rotate(${angle}, ${x1}, ${y1})`}
-                        stroke={isHovered ? "#ef4444" : "#f43f5e"}
-                        strokeWidth={isHovered ? cellSize * 0.11 : cellSize * 0.08}
-                        fill="none"
-                        className="transition-all duration-200 ease-in-out"
-                        style={{
-                          opacity: isAnyHovered && !isHovered ? 0.35 : 1,
-                        }}
+                        fill="transparent"
                       />
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-          )}
-        </div>
+                      {(solutionStyleSetting === "Pill Outlines" || isHovered) && (
+                        <rect
+                          x={x1 - hRadius}
+                          y={y1 - hRadius}
+                          width={L + hHeight}
+                          height={hHeight}
+                          rx={hRadius}
+                          ry={hRadius}
+                          transform={`rotate(${angle}, ${x1}, ${y1})`}
+                          stroke={isHovered ? "#ef4444" : "#f43f5e"}
+                          strokeWidth={isHovered ? cellSize * 0.11 : cellSize * 0.08}
+                          fill="none"
+                          className="transition-all duration-200 ease-in-out"
+                          style={{
+                            opacity: isAnyHovered && !isHovered ? 0.35 : 1,
+                          }}
+                        />
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+            )}
+          </div>
       );
     }
 

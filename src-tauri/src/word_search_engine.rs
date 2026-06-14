@@ -8,8 +8,20 @@ pub fn generate_word_search(
     width: usize,
     height: usize,
     words: Vec<String>,
+    difficulty: Option<crate::models::Difficulty>,
+    mask: Option<Vec<Vec<bool>>>,
 ) -> PuzzlePayload {
     let mut grid: Vec<Vec<char>> = vec![vec![' '; width]; height];
+
+    if let Some(m) = &mask {
+        for y in 0..height {
+            for x in 0..width {
+                if y < m.len() && x < m[y].len() && !m[y][x] {
+                    grid[y][x] = '#';
+                }
+            }
+        }
+    }
 
     let mut sorted_words = words.clone();
     // Sort input words by length (longest first)
@@ -19,16 +31,34 @@ pub fn generate_word_search(
     let mut unplaced_words: Vec<String> = Vec::new();
 
     // (dx, dy)
-    let directions = [
-        (1, 0),   // Horizontal forward
-        (-1, 0),  // Horizontal backward
-        (0, 1),   // Vertical forward
-        (0, -1),  // Vertical backward
-        (1, 1),   // Diagonal down-right
-        (-1, -1), // Diagonal up-left
-        (1, -1),  // Diagonal up-right
-        (-1, 1),  // Diagonal down-left
-    ];
+    let directions = match difficulty.unwrap_or(crate::models::Difficulty::Medium) {
+        crate::models::Difficulty::Kids => vec![
+            (1, 0),  // Horizontal forward
+            (0, 1),  // Vertical forward
+        ],
+        crate::models::Difficulty::Easy => vec![
+            (1, 0),  // Horizontal forward
+            (0, 1),  // Vertical forward
+            (-1, 0), // Horizontal backward
+            (0, -1), // Vertical backward
+        ],
+        crate::models::Difficulty::Medium => vec![
+            (1, 0),  // Horizontal forward
+            (0, 1),  // Vertical forward
+            (1, 1),  // Diagonal down-right
+            (1, -1), // Diagonal up-right
+        ],
+        crate::models::Difficulty::Hard => vec![
+            (1, 0),   // Horizontal forward
+            (-1, 0),  // Horizontal backward
+            (0, 1),   // Vertical forward
+            (0, -1),  // Vertical backward
+            (1, 1),   // Diagonal down-right
+            (-1, -1), // Diagonal up-left
+            (1, -1),  // Diagonal up-right
+            (-1, 1),  // Diagonal down-left
+        ],
+    };
 
     let mut rng = thread_rng();
 
@@ -60,7 +90,7 @@ pub fn generate_word_search(
                         let cx = (start_x + i * dx) as usize;
                         let cy = (start_y + i * dy) as usize;
 
-                        if grid[cy][cx] != ' ' && grid[cy][cx] != word_chars[i as usize] {
+                        if grid[cy][cx] == '#' || (grid[cy][cx] != ' ' && grid[cy][cx] != word_chars[i as usize]) {
                             can_place = false;
                             break;
                         }
@@ -106,7 +136,13 @@ pub fn generate_word_search(
 
     let final_grid = grid
         .into_iter()
-        .map(|row| row.into_iter().map(|c| serde_json::json!(c.to_string())).collect())
+        .map(|row| row.into_iter().map(|c| {
+            if c == '#' {
+                serde_json::Value::Null
+            } else {
+                serde_json::json!(c.to_string())
+            }
+        }).collect())
         .collect();
 
     PuzzlePayload {
@@ -140,7 +176,7 @@ pub fn generate_bulk_word_searches(
     requests
         .into_par_iter()
         .map(|req| {
-            let mut payload = generate_word_search(req.width, req.height, req.words);
+            let mut payload = generate_word_search(req.width, req.height, req.words, req.difficulty.clone(), req.mask.clone());
             payload.title = req.title;
 
             let current = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;

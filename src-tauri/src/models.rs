@@ -1,6 +1,16 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+#[derive(Serialize, Deserialize, TS, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/Difficulty.ts")]
+pub enum Difficulty {
+    Kids,
+    Easy,
+    Medium,
+    Hard,
+}
+
 #[derive(Serialize, Deserialize, TS, Debug, Clone)]
 #[ts(export, export_to = "../../src/types/generated/WordPlacement.ts")]
 pub struct WordPlacement {
@@ -19,6 +29,12 @@ pub struct BulkPuzzleRequest {
     pub width: usize,
     pub height: usize,
     pub words: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub difficulty: Option<Difficulty>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub mask: Option<Vec<Vec<bool>>>,
 }
 
 #[derive(Serialize, Deserialize, TS, Debug, Clone)]
@@ -118,6 +134,7 @@ mod tests {
 
     #[test]
     fn export_bindings() {
+        Difficulty::export().expect("failed to export Difficulty");
         BulkPuzzleRequest::export().expect("failed to export BulkPuzzleRequest");
         WordPlacement::export().expect("failed to export WordPlacement");
         WordSearchData::export().expect("failed to export WordSearchData");

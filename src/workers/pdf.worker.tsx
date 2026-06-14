@@ -1,9 +1,15 @@
-import { pdf } from '@react-pdf/renderer';
-import { PdfDocument } from '../features/pdf/components/PdfDocument';
+// Establish the window global and React Refresh HMR mocks before any other imports load
+(self as any).window = self;
+(self as any).$RefreshReg$ = () => {};
+(self as any).$RefreshSig$ = () => (type: any) => type;
 
 self.onmessage = async (e: MessageEvent) => {
   try {
     const { pages, pageSize, includeSolutions, isSinglePage } = e.data;
+
+    // Dynamically import libraries to ensure self.window is established
+    const { pdf } = await import('@react-pdf/renderer');
+    const { PdfDocument } = await import('../features/pdf/components/PdfDocument');
 
     const blob = await pdf(
       <PdfDocument
@@ -21,3 +27,4 @@ self.onmessage = async (e: MessageEvent) => {
     self.postMessage({ success: false, error: String(error) });
   }
 };
+

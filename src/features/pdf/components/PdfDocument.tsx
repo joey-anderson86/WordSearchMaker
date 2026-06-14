@@ -166,13 +166,31 @@ const renderPdfPage = (
   drawSolutions: boolean,
   pageSize: string,
   pageIndex: number,
-  pageDims: { width: number; height: number }
+  pageDims: { width: number; height: number },
+  totalPages: number
 ) => {
   const activePuzzle = page.metadata;
   const isSudoku = activePuzzle.specificData.type === "Sudoku";
   const isCrossword = activePuzzle.specificData.type === "Crossword";
   const cols = activePuzzle.grid[0]?.length || 0;
   const rows = activePuzzle.grid.length || 0;
+
+  // Calculate dynamic KDP minimums based on total page count
+  let minInsideGutter = 27; // <= 150
+  if (totalPages > 150 && totalPages <= 300) minInsideGutter = 36;
+  else if (totalPages > 300 && totalPages <= 500) minInsideGutter = 45;
+  else if (totalPages > 500) minInsideGutter = 54;
+  
+  const minOutside = 18; // 0.25"
+  
+  const userInside = page.margin?.inside ?? (page.margin as any)?.left ?? 50;
+  const userOutside = page.margin?.outside ?? (page.margin as any)?.right ?? 40;
+  
+  const insideMargin = Math.max(userInside, minInsideGutter + minOutside);
+  const outsideMargin = Math.max(userOutside, minOutside);
+  
+  const isEvenPage = (pageIndex + 1) % 2 === 0;
+  const shiftX = isEvenPage ? (outsideMargin - insideMargin) : 0;
 
   return (
     <Page
@@ -187,7 +205,7 @@ const renderPdfPage = (
           src={layer.url}
           style={{
             position: 'absolute',
-            left: layer.x,
+            left: layer.x + shiftX,
             top: layer.y,
             width: layer.width,
             height: layer.height,
@@ -210,7 +228,7 @@ const renderPdfPage = (
               key={el.id}
               style={{
                 position: 'absolute',
-                left: el.x,
+                left: el.x + shiftX,
                 top: el.y,
                 width: el.width,
                 height: el.height,
@@ -243,21 +261,16 @@ const renderPdfPage = (
           const solutionStyleSetting = el.content.solutionStyle || "Greyscale Mute";
           const gridFontFamily = fontStyleMap[gridFont] || 'Helvetica-Bold';
 
-          const margin = page.margin ?? { top: 40, bottom: 50, inside: 50, outside: 40 };
-          const isEvenPage = (pageIndex + 1) % 2 === 0;
-          
-          // Backwards compatibility for old saved states
-          const insideMargin = margin.inside ?? (margin as any).left ?? 50;
-          const outsideMargin = margin.outside ?? (margin as any).right ?? 40;
-          
+          const marginBottom = page.margin?.bottom ?? 50;
           const rightMargin = isEvenPage ? insideMargin : outsideMargin;
+          const leftMargin = isEvenPage ? outsideMargin : insideMargin;
 
           // Add alternating offset to X based on difference from inside/outside to visual editor layout
           // Visual layout assumes left = leftMargin of this exact page (because we fixed Preview.tsx to alternate).
           // So no shift is needed, but we MUST ensure the grid is bounded by the safe area!
           
-          const maxSafeWidth = pageDims.width - rightMargin - el.x;
-          const maxSafeHeight = pageDims.height - margin.bottom - el.y;
+          const maxSafeWidth = pageDims.width - rightMargin - Math.max(el.x + shiftX, leftMargin);
+          const maxSafeHeight = pageDims.height - marginBottom - el.y;
 
           const paddingOffset = ideThemeSetting ? 32 : 0;
           const gapOffset = isSudoku || isCrossword ? 0 : (cols > 20 || rows > 20 ? 2 : 4);
@@ -282,7 +295,7 @@ const renderPdfPage = (
               key={el.id}
               style={{
                 position: 'absolute',
-                left: el.x,
+                left: el.x + shiftX,
                 top: el.y,
                 width: el.width,
                 height: el.height,
@@ -295,8 +308,8 @@ const renderPdfPage = (
               <View style={[
                 styles.gridOuter, 
                 { 
-                  width: ideThemeSetting ? gridWidth + 24 : gridWidth, 
-                  height: ideThemeSetting ? gridHeight + 36 : gridHeight,
+                  width: ideThemeSetting ? gridWidth + 24 : gridWidth + 3, 
+                  height: ideThemeSetting ? gridHeight + 36 : gridHeight + 3,
                   backgroundColor: ideThemeSetting ? '#0f172a' : '#ffffff',
                   borderColor: '#475569',
                   borderWidth: 1.5,
@@ -347,13 +360,14 @@ const renderPdfPage = (
                 )}
 
                 {/* Grid Cells */}
-                <View style={styles.grid}>
+                <View style={[styles.grid, { gap: gapOffset }]}>
                   {activePuzzle.grid.map((row, rIdx) => (
-                    <View key={rIdx} style={styles.row}>
+                    <View key={rIdx} style={[styles.row, { gap: gapOffset }]}>
                       {row.map((cell, cIdx) => {
                         let displayVal = cell;
                         let isSolutionValue = false;
                         let isBlack = isCrossword && cell === "#";
+                        let isMaskNull = !isSudoku && !isCrossword && cell === null;
 
                         if (isSudoku) {
                           const isStarting = cell !== null;
@@ -370,8 +384,10 @@ const renderPdfPage = (
                           }
                         }
 
-                        let cellBorders = {};
-                        if (isSudoku) {
+                        let cellBorders: any = {};
+                        if (isMaskNull) {
+                          cellBorders = { borderWidth: 0, borderColor: 'transparent' };
+                        } else if (isSudoku) {
                           const borderTop = rIdx % 3 === 0 && rIdx !== 0 ? 2.5 : 0.5;
                           const borderLeft = cIdx % 3 === 0 && cIdx !== 0 ? 2.5 : 0.5;
                           cellBorders = {
@@ -425,13 +441,15 @@ const renderPdfPage = (
                               { 
                                 width: cellSize, 
                                 height: cellSize,
-                                backgroundColor: isBlack 
-                                  ? '#1e293b' 
-                                  : isSudoku 
-                                    ? cell !== null ? '#ffffff' : (drawSolutions ? '#f5f3ff' : '#ffffff')
-                                    : isCrossword
-                                      ? '#ffffff'
-                                      : ideThemeSetting ? 'transparent' : '#ffffff',
+                                backgroundColor: isMaskNull 
+                                  ? 'transparent'
+                                  : isBlack 
+                                    ? '#1e293b' 
+                                    : isSudoku 
+                                      ? cell !== null ? '#ffffff' : (drawSolutions ? '#f5f3ff' : '#ffffff')
+                                      : isCrossword
+                                        ? '#ffffff'
+                                        : ideThemeSetting ? 'transparent' : '#ffffff',
                                 position: 'relative'
                               }
                             ]}
@@ -450,7 +468,7 @@ const renderPdfPage = (
                                 {crosswordClue.number}
                               </Text>
                             )}
-                            {!isBlack && (
+                            {!isBlack && !isMaskNull && (
                               <Text style={[
                                 styles.cellText, 
                                 { 
@@ -516,7 +534,7 @@ const renderPdfPage = (
                   styles.wordBankContainer,
                   {
                     position: 'absolute',
-                    left: el.x,
+                    left: el.x + shiftX,
                     top: el.y,
                     width: el.width,
                     height: el.height,
@@ -573,7 +591,7 @@ const renderPdfPage = (
                   styles.wordBankContainer,
                   {
                     position: 'absolute',
-                    left: el.x,
+                    left: el.x + shiftX,
                     top: el.y,
                     width: el.width,
                     height: el.height,
@@ -603,7 +621,7 @@ const renderPdfPage = (
                   styles.wordBankContainer,
                   {
                     position: 'absolute',
-                    left: el.x,
+                    left: el.x + shiftX,
                     top: el.y,
                     width: el.width,
                     height: el.height,
@@ -681,21 +699,26 @@ export function PdfDocument({
   isSinglePage = false,
 }: PdfDocumentProps) {
   const PAGE_SIZES: Record<string, { width: number, height: number }> = {
-    "A4": { width: 595, height: 841 },
+    "A4": { width: 595.28, height: 841.89 },
     "LETTER": { width: 612, height: 792 },
+    "6X9_NO_BLEED": { width: 432, height: 648 },
+    "6X9_BLEED": { width: 441, height: 666 },
+    "8.5X11_NO_BLEED": { width: 612, height: 792 },
+    "8.5X11_BLEED": { width: 621, height: 810 },
   };
   const norm = pageSize.toUpperCase();
   const pageDims = PAGE_SIZES[norm] || PAGE_SIZES["A4"];
+  const totalPages = pages.length * (!isSinglePage && includeSolutions ? 2 : 1);
 
   return (
     <Document>
       {/* 1. Puzzle Pages */}
-      {pages.map((page, idx) => renderPdfPage(page, false, pageSize, idx, pageDims))}
+      {pages.map((page, idx) => renderPdfPage(page, false, pageSize, idx, pageDims, totalPages))}
 
       {/* 2. Solution Pages */}
       {!isSinglePage &&
         includeSolutions &&
-        pages.map((page, idx) => renderPdfPage(page, true, pageSize, idx + pages.length, pageDims))}
+        pages.map((page, idx) => renderPdfPage(page, true, pageSize, idx + pages.length, pageDims, totalPages))}
     </Document>
   );
 }

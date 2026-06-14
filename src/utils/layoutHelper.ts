@@ -4,6 +4,23 @@ import { GridElement } from "../types/generated/GridElement";
 import { getPageDimensions } from "../types/pageSizes";
 
 /**
+ * Get KDP compliant margins based on page count
+ */
+export function getKdpMargins(pageCount: number = 100) {
+  let insideGutter = 27; // <= 150 pages: 0.375"
+  if (pageCount > 150 && pageCount <= 300) insideGutter = 36; // 0.5"
+  else if (pageCount > 300 && pageCount <= 500) insideGutter = 45; // 0.625"
+  else if (pageCount > 500) insideGutter = 54; // 0.75"
+
+  return {
+    top: 36,      // 0.5"
+    bottom: 36,   // 0.5"
+    outside: 36,  // 0.5"
+    inside: insideGutter + 18, // Gutter + 0.25" safe area
+  };
+}
+
+/**
  * Creates the default PageState layout for a newly generated puzzle.
  */
 export function createDefaultPageState(

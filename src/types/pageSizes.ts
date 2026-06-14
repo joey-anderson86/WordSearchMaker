@@ -4,8 +4,12 @@ export interface PageDimension {
 }
 
 export const PAGE_SIZES: Record<string, PageDimension> = {
-  "A4": { width: 595, height: 841 },
+  "A4": { width: 595.28, height: 841.89 },
   "LETTER": { width: 612, height: 792 },
+  "6X9_NO_BLEED": { width: 432, height: 648 },
+  "6X9_BLEED": { width: 441, height: 666 },
+  "8.5X11_NO_BLEED": { width: 612, height: 792 },
+  "8.5X11_BLEED": { width: 621, height: 810 },
 };
 
 export function getPageDimensions(size: string): PageDimension {
