@@ -7,11 +7,7 @@ import { tempDir, join } from "@tauri-apps/api/path";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { getPageDimensions } from "../../../types/pageSizes";
 
-const fontStyleMap: Record<string, string> = {
-  "Modern Sans": "'Montserrat', 'Inter', sans-serif",
-  "Display Geometric": "'Oswald', sans-serif",
-  "Developer Mono": "'JetBrains Mono', 'Fira Code', monospace"
-};
+import { fontStyleMap } from "../../../utils/fonts";
 
 const formatTitle = (title: string, themeAccents?: boolean) => {
   if (!themeAccents) return title;

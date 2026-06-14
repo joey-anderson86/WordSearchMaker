@@ -1,15 +1,9 @@
 import { Document, Page, View, Text, StyleSheet, Svg, Rect, Image } from "@react-pdf/renderer";
 import type { PageState } from "../../../types/generated/PageState";
 import { chunkArray, enforceLargePrint } from "../../../utils/layoutHelper";
-import { registerFonts } from "../../../utils/fonts";
+import { registerFonts, fontStyleMap } from "../../../utils/fonts";
 
 registerFonts();
-
-const fontStyleMap: Record<string, string> = {
-  "Modern Sans": "Montserrat",
-  "Display Geometric": "Oswald",
-  "Developer Mono": "JetBrains Mono"
-};
 
 const formatTitle = (title: string, themeAccents?: boolean) => {
   if (!themeAccents) return title;
@@ -234,6 +228,7 @@ const renderPdfPage = (
             height: layer.height,
             zIndex: layer.zIndex ?? 1,
             opacity: layer.opacity ?? 1,
+            transform: (layer as any).rotation ? `rotate(${(layer as any).rotation}deg)` : 'none',
           }}
         />
       ))}
@@ -267,6 +262,7 @@ const renderPdfPage = (
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
+                transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
               }}
             >
               <Text style={{ fontFamily: textFontFamily, color: color, fontSize: size, textAlign: align as any, letterSpacing: el.content.letterSpacing ?? 0 }}>
@@ -332,6 +328,7 @@ const renderPdfPage = (
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
               }}
             >
               <View style={[
@@ -568,6 +565,7 @@ const renderPdfPage = (
                     width: el.width,
                     height: el.height,
                     zIndex: el.zIndex ?? 10,
+                    transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
                   }
                 ]}
               >
@@ -635,6 +633,7 @@ const renderPdfPage = (
                     width: el.width,
                     height: el.height,
                     zIndex: el.zIndex ?? 10,
+                    transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
                   }
                 ]}
               >
@@ -666,6 +665,7 @@ const renderPdfPage = (
                     height: el.height,
                     zIndex: el.zIndex ?? 10,
                     padding: 8,
+                    transform: (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
                   }
                 ]}
               >

@@ -2,6 +2,9 @@ import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { CoverState } from '../../store/coverSlice';
 import { calculateCoverDimensions } from '../../utils/layoutHelper';
+import { registerFonts, fontStyleMap } from '../../utils/fonts';
+
+registerFonts();
 
 export interface CoverDocumentProps {
   coverState: CoverState;
@@ -90,7 +93,7 @@ export const CoverDocument: React.FC<CoverDocumentProps> = ({
                 top: el.y,
                 width: el.width,
                 height: el.height,
-                transform: isSpine ? 'rotate(-90deg)' : 'none',
+                transform: isSpine ? 'rotate(-90deg)' : (el as any).rotation ? `rotate(${(el as any).rotation}deg)` : 'none',
                 transformOrigin: '50% 50%',
                 display: 'flex',
                 justifyContent: el.content.align === 'center' ? 'center' : (el.content.align === 'right' ? 'flex-end' : 'flex-start'),
@@ -101,7 +104,7 @@ export const CoverDocument: React.FC<CoverDocumentProps> = ({
                 style={{
                   color: el.content.color || '#000000',
                   fontSize: el.content.fontSize ?? 12,
-                  fontFamily: el.content.fontFamily === 'Modern Sans' ? 'Helvetica' : 'Helvetica',
+                  fontFamily: fontStyleMap[el.content.fontFamily] || 'Helvetica',
                   textAlign: el.content.align as any,
                 }}
               >

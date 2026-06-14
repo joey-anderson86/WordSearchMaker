@@ -17,6 +17,7 @@ import {
   ImagePlus
 } from "lucide-react";
 import React from "react";
+import { fontOptions } from "../../../utils/fonts";
 
 export function RightPanel() {
   const viewMode = useStore((state) => state.viewMode);
@@ -401,6 +402,15 @@ export function RightPanel() {
                   className="bg-slate-800 border border-slate-750 rounded-lg p-1.5 text-slate-200 outline-none font-mono"
                 />
               </div>
+              <div className="flex flex-col gap-1 col-span-2">
+                <label className="text-[10px] text-slate-400 font-semibold">Rotation (deg)</label>
+                <input 
+                  type="number" 
+                  value={selectedElement ? Math.round(selectedElement.rotation || 0) : Math.round(selectedArtLayer!.rotation || 0)}
+                  onChange={(e) => handleLayoutEdit('rotation', parseFloat(e.target.value) || 0)}
+                  className="bg-slate-800 border border-slate-750 rounded-lg p-1.5 text-slate-200 outline-none font-mono"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -431,9 +441,9 @@ export function RightPanel() {
                 onChange={(e) => handleContentEdit(selectedElement.type, { fontFamily: e.target.value })}
                 className="bg-slate-800 border border-slate-750 rounded-lg p-2 text-xs text-slate-200 cursor-pointer outline-none"
               >
-                <option value="Modern Sans">Modern Sans (Montserrat/Inter)</option>
-                <option value="Display Geometric">Display Geometric (Oswald)</option>
-                <option value="Developer Mono">Developer Mono (JetBrains Mono)</option>
+                {fontOptions.map(font => (
+                  <option key={font.value} value={font.value} className="bg-slate-800">{font.label}</option>
+                ))}
               </select>
             </div>
 
@@ -523,9 +533,9 @@ export function RightPanel() {
                 onChange={(e) => handleContentEdit("grid", { gridFont: e.target.value })}
                 className="bg-slate-800 border border-slate-750 rounded-lg p-2 text-xs text-slate-200 cursor-pointer outline-none"
               >
-                <option value="Modern Sans">Modern Sans (Montserrat/Inter)</option>
-                <option value="Display Geometric">Display Geometric (Oswald)</option>
-                <option value="Developer Mono">Developer Mono (JetBrains Mono)</option>
+                {fontOptions.map(font => (
+                  <option key={font.value} value={font.value} className="bg-slate-800">{font.label}</option>
+                ))}
               </select>
             </div>
 
@@ -581,8 +591,8 @@ export function RightPanel() {
                     onChange={(e) => handleContentEdit("grid", { solutionStyle: e.target.value })}
                     className="bg-slate-800 border border-slate-750 rounded-lg p-2 text-xs text-slate-200 cursor-pointer outline-none"
                   >
-                    <option value="Greyscale Mute">Greyscale Mute (Dim Filler Letters)</option>
-                    <option value="Pill Outlines">Pill Outlines (Uniform Capsule)</option>
+                    <option value="Greyscale Mute" className="bg-slate-800">Greyscale Mute (Dim Filler Letters)</option>
+                    <option value="Pill Outlines" className="bg-slate-800">Pill Outlines (Uniform Capsule)</option>
                   </select>
                 </div>
               </>
@@ -605,9 +615,9 @@ export function RightPanel() {
                 onChange={(e) => handleContentEdit("wordbank", { fontFamily: e.target.value })}
                 className="bg-slate-800 border border-slate-750 rounded-lg p-2 text-xs text-slate-200 cursor-pointer outline-none"
               >
-                <option value="Modern Sans">Modern Sans (Montserrat/Inter)</option>
-                <option value="Display Geometric">Display Geometric (Oswald)</option>
-                <option value="Developer Mono">Developer Mono (JetBrains Mono)</option>
+                {fontOptions.map(font => (
+                  <option key={font.value} value={font.value} className="bg-slate-800">{font.label}</option>
+                ))}
               </select>
             </div>
 
@@ -638,9 +648,9 @@ export function RightPanel() {
                     onChange={(e) => handleContentEdit("wordbank", { columns: parseInt(e.target.value) })}
                     className="bg-slate-800 border border-slate-750 rounded-lg p-2 text-xs text-slate-200 cursor-pointer outline-none"
                   >
-                    <option value="2">2 Columns</option>
-                    <option value="3">3 Columns</option>
-                    <option value="4">4 Columns</option>
+                    <option value="2" className="bg-slate-800">2 Columns</option>
+                    <option value="3" className="bg-slate-800">3 Columns</option>
+                    <option value="4" className="bg-slate-800">4 Columns</option>
                   </select>
                 </div>
 
@@ -652,9 +662,9 @@ export function RightPanel() {
                     onChange={(e) => handleContentEdit("wordbank", { selectorStyle: e.target.value })}
                     className="bg-slate-800 border border-slate-750 rounded-lg p-2 text-xs text-slate-200 cursor-pointer outline-none"
                   >
-                    <option value="Clean Text (No Bullets)">Clean Text (No Bullets)</option>
-                    <option value="Classic Bullet Points">Classic Bullet Points (•)</option>
-                    <option value="Checkbox [ ] Style">Checkbox [ ] Style</option>
+                    <option value="Clean Text (No Bullets)" className="bg-slate-800">Clean Text (No Bullets)</option>
+                    <option value="Classic Bullet Points" className="bg-slate-800">Classic Bullet Points (•)</option>
+                    <option value="Checkbox [ ] Style" className="bg-slate-800">Checkbox [ ] Style</option>
                   </select>
                 </div>
               </>

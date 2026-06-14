@@ -41,11 +41,13 @@ export function Sidebar() {
   const pageSize = useStore((state) => state.pageSize);
   const bookTitle = useStore((state) => state.bookTitle);
   const includeSolutions = useStore((state) => state.includeSolutions);
+  const solutionsPerPage = useStore((state) => state.solutionsPerPage);
   const defaultMargins = useStore((state) => state.defaultMargins);
 
   const setBookTitle = useStore((state) => state.setBookTitle);
   const setPageSize = useStore((state) => state.setPageSize);
   const setIncludeSolutions = useStore((state) => state.setIncludeSolutions);
+  const setSolutionsPerPage = useStore((state) => state.setSolutionsPerPage);
   const setDefaultMargins = useStore((state) => state.setDefaultMargins);
   const setSelectedPuzzleId = useStore((state) => state.setSelectedPuzzleId);
   const setViewMode = useStore((state) => state.setViewMode);
@@ -424,12 +426,12 @@ export function Sidebar() {
               <Printer size={14} /> Page Size
             </label>
             <select
-              className="bg-slate-855 border border-slate-700/80 rounded-lg p-2 text-xs focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer text-slate-100"
+              className="bg-slate-800 border border-slate-700/80 rounded-lg p-2 text-xs focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer text-slate-100"
               value={pageSize}
               onChange={(e) => setPageSize(e.target.value)}
             >
-              <option value="A4">A4 (210 x 297 mm)</option>
-              <option value="Letter">US Letter (8.5 x 11 in)</option>
+              <option value="A4" className="bg-slate-800">A4 (210 x 297 mm)</option>
+              <option value="Letter" className="bg-slate-800">US Letter (8.5 x 11 in)</option>
             </select>
           </div>
 
@@ -445,6 +447,25 @@ export function Sidebar() {
               Include Solutions Section at End
             </label>
           </div>
+
+          {includeSolutions && (
+            <div className="flex flex-col gap-1.5 ml-6">
+              <label className="text-[10px] font-semibold text-slate-400">
+                Solutions Per Page
+              </label>
+              <select
+                className="bg-slate-800 border border-slate-700/80 rounded-lg p-1.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer text-slate-100"
+                value={solutionsPerPage}
+                onChange={(e) => setSolutionsPerPage(parseInt(e.target.value) as 1 | 2 | 4 | 6 | 9)}
+              >
+                <option value={1} className="bg-slate-800">1 per page</option>
+                <option value={2} className="bg-slate-800">2 per page</option>
+                <option value={4} className="bg-slate-800">4 per page</option>
+                <option value={6} className="bg-slate-800">6 per page</option>
+                <option value={9} className="bg-slate-800">9 per page</option>
+              </select>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5 mt-2 p-2.5 bg-slate-800/30 border border-slate-750/50 rounded-lg">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Default Margins (pt)</label>
@@ -567,9 +588,9 @@ export function Sidebar() {
               onChange={(e) => setSelectedTypeToCreate(e.target.value as PuzzlePayloadType)}
               className="bg-slate-800 border border-slate-700 rounded py-0.5 px-1 text-[11px] focus:ring-1 focus:ring-emerald-500 outline-none cursor-pointer text-slate-200"
             >
-              <option value="WordSearch">Word Search</option>
-              <option value="Sudoku">Sudoku</option>
-              <option value="Crossword">Crossword</option>
+              <option value="WordSearch" className="bg-slate-800">Word Search</option>
+              <option value="Sudoku" className="bg-slate-800">Sudoku</option>
+              <option value="Crossword" className="bg-slate-800">Crossword</option>
             </select>
             <button
               onClick={handleAddPuzzle}
@@ -694,10 +715,10 @@ export function Sidebar() {
                       value={(selectedPuzzle.specificData.data as any).difficulty || "easy"}
                       onChange={(e) => handleSudokuDifficultyChange(e.target.value as any)}
                     >
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
-                      <option value="expert">Expert</option>
+                      <option value="easy" className="bg-slate-800">Easy</option>
+                      <option value="medium" className="bg-slate-800">Medium</option>
+                      <option value="hard" className="bg-slate-800">Hard</option>
+                      <option value="expert" className="bg-slate-800">Expert</option>
                     </select>
                   </div>
 
@@ -828,10 +849,10 @@ export function Sidebar() {
                         });
                       }}
                     >
-                      <option value="kids">Kids</option>
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
+                      <option value="kids" className="bg-slate-800">Kids</option>
+                      <option value="easy" className="bg-slate-800">Easy</option>
+                      <option value="medium" className="bg-slate-800">Medium</option>
+                      <option value="hard" className="bg-slate-800">Hard</option>
                     </select>
                   </div>
 
