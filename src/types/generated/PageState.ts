@@ -7,6 +7,8 @@ import type { PuzzlePayload } from "./PuzzlePayload";
 export type PageState = {
   id: string;
   title: string;
+  pageType?: "PUZZLE" | "TEXT_BLOCK";
+  textContent?: string;
   gridLayout: Array<GridElement>;
   artLayers: Array<ArtLayer>;
   fontProperties: FontProperties;

@@ -1,6 +1,5 @@
 import { Document, Page, View, Text, StyleSheet, Svg, Rect, Image } from "@react-pdf/renderer";
 import type { PageState } from "../../../types/generated/PageState";
-import { chunkArray } from "../../../utils/layoutHelper";
 import { registerFonts } from "../../../utils/fonts";
 
 registerFonts();
@@ -43,7 +42,6 @@ interface PdfDocumentProps {
   pageSize: string;
   includeSolutions: boolean;
   isSinglePage?: boolean;
-  solutionsPerPage?: number;
 }
 
 const styles = StyleSheet.create({
@@ -694,289 +692,11 @@ const renderPdfPage = (
   );
 };
 
-const renderTextBlockPage = (
-  page: PageState,
-  pageSize: string,
-  pageIndex: number,
-  _pageDims: { width: number; height: number },
-  totalPages: number
-) => {
-  let minInsideGutter = 27;
-  if (totalPages > 150 && totalPages <= 300) minInsideGutter = 36;
-  else if (totalPages > 300 && totalPages <= 500) minInsideGutter = 45;
-  else if (totalPages > 500) minInsideGutter = 54;
-  
-  const minOutside = 18;
-  const userInside = page.margin?.inside ?? 50;
-  const userOutside = page.margin?.outside ?? 40;
-  
-  const insideMargin = Math.max(userInside, minInsideGutter + minOutside);
-  const outsideMargin = Math.max(userOutside, minOutside);
-  
-  const isEvenPage = (pageIndex + 1) % 2 === 0;
-  const rightMargin = isEvenPage ? insideMargin : outsideMargin;
-  const leftMargin = isEvenPage ? outsideMargin : insideMargin;
-
-  const align = page.title.toLowerCase().includes("copyright") ? 'left' : 'center';
-
-  return (
-    <Page
-      key={`${page.id}-text`}
-      size={pageSize.toUpperCase() as any}
-      style={[styles.page, { backgroundColor: page.backgroundColor || '#ffffff', paddingLeft: leftMargin, paddingRight: rightMargin, paddingTop: page.margin?.top ?? 50, paddingBottom: page.margin?.bottom ?? 50 }]}
-    >
-      <View style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: align === 'left' ? 'flex-start' : 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 24, marginBottom: 20, textAlign: align as any, color: '#0f172a' }}>
-          {page.title}
-        </Text>
-        <Text style={{ fontFamily: 'Helvetica', fontSize: 12, textAlign: align as any, color: '#334155', lineHeight: 1.5 }}>
-          {page.textContent || ""}
-        </Text>
-      </View>
-      <Text style={styles.footer} render={({ pageNumber }) => `Page ${pageNumber}`} fixed />
-    </Page>
-  );
-};
-
-const renderMiniSolutionGrid = (page: PageState, width: number, height: number) => {
-  const activePuzzle = page.metadata;
-  const isSudoku = activePuzzle.specificData.type === "Sudoku";
-  const isCrossword = activePuzzle.specificData.type === "Crossword";
-  const cols = activePuzzle.grid[0]?.length || 0;
-  const rows = activePuzzle.grid.length || 0;
-
-  const titleEl = page.gridLayout.find(e => e.type === "title");
-  const gridEl = page.gridLayout.find(e => e.type === "grid");
-
-  if (!gridEl) return null;
-
-  const gridFont = gridEl.content.gridFont || activePuzzle.gridFont || "Modern Sans";
-  const solutionStyleSetting = gridEl.content.solutionStyle || "Greyscale Mute";
-  const gridFontFamily = fontStyleMap[gridFont] || 'Helvetica-Bold';
-
-  const gapOffset = isSudoku || isCrossword ? 0 : (cols > 20 || rows > 20 ? 1 : 2);
-  const titleHeight = 20;
-  
-  const maxCellSizeW = (width - (cols - 1) * gapOffset) / cols;
-  const maxCellSizeH = (height - titleHeight - (rows - 1) * gapOffset) / rows;
-  const cellSize = Math.max(2, Math.min(maxCellSizeW, maxCellSizeH));
-  const step = cellSize + gapOffset;
-  const gridWidth = cols * step - gapOffset;
-  const gridHeight = rows * step - gapOffset;
-
-  return (
-    <View style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {titleEl && (
-        <Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 10, color: '#0f172a', marginBottom: 5 }}>
-          {formatTitle(titleEl.content.text, titleEl.content.themeAccents)}
-        </Text>
-      )}
-      <View style={[styles.gridOuter, { width: gridWidth + 3, height: gridHeight + 3, borderColor: '#475569', borderWidth: 1 }]}>
-        {!isSudoku && !isCrossword && solutionStyleSetting === "Pill Outlines" && (
-          <Svg width={gridWidth} height={gridHeight} style={styles.svgOverlay}>
-            {(activePuzzle.specificData.data as any).solutions.map((sol: any, index: number) => {
-              const x1 = sol.start_x * step + cellSize / 2;
-              const y1 = sol.start_y * step + cellSize / 2;
-              const x2 = sol.end_x * step + cellSize / 2;
-              const y2 = sol.end_y * step + cellSize / 2;
-              const dx = x2 - x1;
-              const dy = y2 - y1;
-              const L = Math.sqrt(dx * dx + dy * dy);
-              const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-              const hHeight = cellSize * 1.0;
-              const hRadius = hHeight / 2;
-
-              return (
-                <Rect
-                  key={index}
-                  x={x1 - hRadius}
-                  y={y1 - hRadius}
-                  width={L + hHeight}
-                  height={hHeight}
-                  rx={hRadius}
-                  ry={hRadius}
-                  transform={`rotate(${angle}, ${x1}, ${y1})`}
-                  stroke="#ef4444"
-                  strokeWidth={1}
-                  fill="none"
-                />
-              );
-            })}
-          </Svg>
-        )}
-        
-        <View style={[styles.grid, { gap: gapOffset }]}>
-          {activePuzzle.grid.map((row, rIdx) => (
-            <View key={rIdx} style={[styles.row, { gap: gapOffset }]}>
-              {row.map((cell, cIdx) => {
-                let displayVal = cell;
-                let isSolutionValue = false;
-                let isBlack = isCrossword && cell === "#";
-                let isMaskNull = !isSudoku && !isCrossword && cell === null;
-
-                if (isSudoku) {
-                  const isStarting = cell !== null;
-                  if (!isStarting) {
-                    displayVal = (activePuzzle.specificData.data as any).solution?.[rIdx]?.[cIdx] ?? null;
-                    isSolutionValue = true;
-                  }
-                } else if (isCrossword) {
-                  if (!isBlack) {
-                    displayVal = (activePuzzle.specificData.data as any).solution?.[rIdx]?.[cIdx] ?? "";
-                    isSolutionValue = true;
-                  } else {
-                    displayVal = "";
-                  }
-                }
-
-                let cellBorders: any = {};
-                if (isMaskNull) {
-                  cellBorders = { borderWidth: 0, borderColor: 'transparent' };
-                } else if (isSudoku) {
-                  const borderTop = rIdx % 3 === 0 && rIdx !== 0 ? 1.5 : 0.5;
-                  const borderLeft = cIdx % 3 === 0 && cIdx !== 0 ? 1.5 : 0.5;
-                  cellBorders = {
-                    borderTopWidth: borderTop,
-                    borderLeftWidth: borderLeft,
-                    borderColor: '#334155',
-                  };
-                } else if (isCrossword) {
-                  cellBorders = {
-                    borderWidth: 0.5,
-                    borderColor: '#94a3b8',
-                  };
-                } else {
-                  cellBorders = {
-                    borderWidth: 0.5,
-                    borderColor: '#e2e8f0',
-                  };
-                }
-
-                let cellTextOpacity = 1.0;
-                let cellTextCol = '#1e293b';
-
-                if (!isSudoku && !isCrossword) {
-                  const inSol = isCellInSolution(cIdx, rIdx, (activePuzzle.specificData.data as any).solutions);
-                  if (solutionStyleSetting === "Greyscale Mute") {
-                    if (inSol) {
-                      cellTextCol = '#4f46e5';
-                    } else {
-                      cellTextOpacity = 0.3;
-                      cellTextCol = '#cbd5e1';
-                    }
-                  }
-                } else {
-                  if (isSolutionValue) {
-                    cellTextCol = '#4f46e5';
-                  }
-                }
-
-                return (
-                  <View
-                    key={cIdx}
-                    style={[
-                      styles.cell, 
-                      cellBorders,
-                      { 
-                        width: cellSize, 
-                        height: cellSize,
-                        backgroundColor: isMaskNull 
-                          ? 'transparent'
-                          : isBlack 
-                            ? '#1e293b' 
-                            : isSudoku && isSolutionValue
-                              ? '#f5f3ff'
-                              : '#ffffff'
-                      }
-                    ]}
-                  >
-                    {!isBlack && !isMaskNull && (
-                      <Text style={[
-                        styles.cellText, 
-                        { 
-                          fontSize: cellSize * 0.6, 
-                          fontFamily: isSudoku && cell !== null ? 'Helvetica-Bold' : gridFontFamily, 
-                          opacity: cellTextOpacity,
-                          color: cellTextCol
-                        }
-                      ]}>
-                        {displayVal === null ? "" : displayVal}
-                      </Text>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-};
-
-const renderPdfSolutionsGridPage = (
-  chunk: PageState[],
-  pageSize: string,
-  pageIndex: number,
-  pageDims: { width: number; height: number },
-  totalPages: number,
-  solutionsPerPage: number
-) => {
-  let minInsideGutter = 27; // <= 150
-  if (totalPages > 150 && totalPages <= 300) minInsideGutter = 36;
-  else if (totalPages > 300 && totalPages <= 500) minInsideGutter = 45;
-  else if (totalPages > 500) minInsideGutter = 54;
-  
-  const minOutside = 18; // 0.25"
-  
-  const page = chunk[0];
-  const userInside = page.margin?.inside ?? 50;
-  const userOutside = page.margin?.outside ?? 40;
-  
-  const insideMargin = Math.max(userInside, minInsideGutter + minOutside);
-  const outsideMargin = Math.max(userOutside, minOutside);
-  
-  const isEvenPage = (pageIndex + 1) % 2 === 0;
-  const rightMargin = isEvenPage ? insideMargin : outsideMargin;
-  const leftMargin = isEvenPage ? outsideMargin : insideMargin;
-  
-  const paddingTop = page.margin?.top ?? 50;
-  const paddingBottom = page.margin?.bottom ?? 50;
-
-  let cols = 1;
-  let rows = 1;
-  if (solutionsPerPage === 2) { cols = 1; rows = 2; }
-  else if (solutionsPerPage === 4) { cols = 2; rows = 2; }
-  else if (solutionsPerPage === 6) { cols = 2; rows = 3; }
-  else if (solutionsPerPage === 9) { cols = 3; rows = 3; }
-
-  const contentW = pageDims.width - leftMargin - rightMargin;
-  const contentH = pageDims.height - paddingTop - paddingBottom - 20;
-
-  return (
-    <Page
-      key={`sol-page-${pageIndex}`}
-      size={pageSize.toUpperCase() as any}
-      style={[styles.page, { backgroundColor: '#ffffff', paddingLeft: leftMargin, paddingRight: rightMargin, paddingTop, paddingBottom }]}
-    >
-      <View style={{ flex: 1, display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start' }}>
-        {chunk.map((solPage) => (
-           <View key={solPage.id} style={{ width: `${100 / cols}%`, height: `${100 / rows}%`, padding: 5 }}>
-             {renderMiniSolutionGrid(solPage, contentW / cols - 10, contentH / rows - 10)}
-           </View>
-        ))}
-      </View>
-      <Text style={styles.footer} render={({ pageNumber }) => `Page ${pageNumber}`} fixed />
-    </Page>
-  );
-};
-
 export function PdfDocument({
   pages,
   pageSize,
   includeSolutions,
   isSinglePage = false,
-  solutionsPerPage = 1,
 }: PdfDocumentProps) {
   const PAGE_SIZES: Record<string, { width: number, height: number }> = {
     "A4": { width: 595.28, height: 841.89 },
@@ -988,30 +708,17 @@ export function PdfDocument({
   };
   const norm = pageSize.toUpperCase();
   const pageDims = PAGE_SIZES[norm] || PAGE_SIZES["A4"];
-  const puzPages = pages.filter(p => p.pageType !== "TEXT_BLOCK");
-  const solutionCount = (!isSinglePage && includeSolutions) ? Math.ceil(puzPages.length / (solutionsPerPage || 1)) : 0;
-  const totalPagesCount = pages.length + solutionCount;
+  const totalPages = pages.length * (!isSinglePage && includeSolutions ? 2 : 1);
 
   return (
     <Document>
-      {/* 1. Normal Pages (Puzzle or Text Block) */}
-      {pages.map((page, idx) => {
-        if (page.pageType === "TEXT_BLOCK") {
-          return renderTextBlockPage(page, pageSize, idx, pageDims, totalPagesCount);
-        }
-        return renderPdfPage(page, false, pageSize, idx, pageDims, totalPagesCount);
-      })}
+      {/* 1. Puzzle Pages */}
+      {pages.map((page, idx) => renderPdfPage(page, false, pageSize, idx, pageDims, totalPages))}
 
       {/* 2. Solution Pages */}
-      {!isSinglePage && includeSolutions && (
-        (solutionsPerPage && solutionsPerPage > 1) 
-          ? chunkArray(puzPages, solutionsPerPage).map((chunk, _idx) => 
-              renderPdfSolutionsGridPage(chunk, pageSize, _idx + pages.length, pageDims, totalPagesCount, solutionsPerPage)
-            )
-          : puzPages.map((page, idx) => 
-              renderPdfPage(page, true, pageSize, idx + pages.length, pageDims, totalPagesCount)
-            )
-      )}
+      {!isSinglePage &&
+        includeSolutions &&
+        pages.map((page, idx) => renderPdfPage(page, true, pageSize, idx + pages.length, pageDims, totalPages))}
     </Document>
   );
 }

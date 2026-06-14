@@ -41,6 +41,8 @@ export function RightPanel() {
   const setBookTitle = useStore((state) => state.setBookTitle);
   const includeSolutions = useStore((state) => state.includeSolutions);
   const setIncludeSolutions = useStore((state) => state.setIncludeSolutions);
+  const solutionsPerPage = useStore((state) => state.solutionsPerPage);
+  const setSolutionsPerPage = useStore((state) => state.setSolutionsPerPage);
 
   const activePage = pages.find((p) => p.id === selectedPageId);
   const activePuzzle = activePage?.metadata;
@@ -306,6 +308,23 @@ export function RightPanel() {
                 Include Solutions Section
               </label>
             </div>
+
+            {includeSolutions && (
+              <div className="flex flex-col gap-1 mt-2">
+                <label className="text-[10px] font-semibold text-slate-400">Solutions Per Page</label>
+                <select
+                  value={solutionsPerPage || 1}
+                  onChange={(e) => setSolutionsPerPage(parseInt(e.target.value))}
+                  className="bg-slate-800 border border-slate-750 rounded-lg p-2 text-xs text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  <option value="1">1 Solution</option>
+                  <option value="2">2 Solutions</option>
+                  <option value="4">4 Solutions</option>
+                  <option value="6">6 Solutions</option>
+                  <option value="9">9 Solutions</option>
+                </select>
+              </div>
+            )}
 
             <button
               onClick={() => resetPageLayout(activePage.id, pageSize)}

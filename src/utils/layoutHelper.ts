@@ -4,6 +4,53 @@ import { GridElement } from "../types/generated/GridElement";
 import { getPageDimensions } from "../types/pageSizes";
 
 /**
+ * Chunk an array into smaller arrays of a specified size.
+ */
+export function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunked: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunked.push(array.slice(i, i + size));
+  }
+  return chunked;
+}
+
+/**
+ * Creates a text block page for front or back matter.
+ */
+export function createTextBlockPage(title: string, textContent: string, _pageSize: string): PageState {
+  
+  // Use default margins for simple text blocks
+  const margins = { top: 72, bottom: 72, inside: 72, outside: 72 };
+
+  return {
+    id: crypto.randomUUID(),
+    title,
+    pageType: "TEXT_BLOCK",
+    textContent,
+    gridLayout: [],
+    artLayers: [],
+    fontProperties: {
+      titleFont: "Modern Sans",
+      gridFont: "Modern Sans",
+      titleSize: 28,
+      gridSize: 14,
+      color: "#1e293b",
+    },
+    metadata: {
+      id: crypto.randomUUID(),
+      title,
+      grid: [],
+      specific_data: { type: "WordSearch", data: { word_bank: [], unplaced_words: [], solutions: [] } }
+    } as any,
+    backgroundColor: "#ffffff",
+    themeColor: "#4f46e5",
+    margin: margins,
+    gridSnapSize: 10,
+    showMargins: false
+  };
+}
+
+/**
  * Get KDP compliant margins based on page count
  */
 export function getKdpMargins(pageCount: number = 100) {

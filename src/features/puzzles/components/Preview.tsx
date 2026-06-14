@@ -3,6 +3,8 @@ import { useStore } from "../../../store";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Download, AlertCircle, Eye, EyeOff, ChevronLeft, ChevronRight, RefreshCw, Loader2 } from "lucide-react";
 import { writeFile } from "@tauri-apps/plugin-fs";
+import { tempDir, join } from "@tauri-apps/api/path";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { getPageDimensions } from "../../../types/pageSizes";
 
 const fontStyleMap: Record<string, string> = {
@@ -52,10 +54,12 @@ export function Preview() {
   const pageSize = useStore((state) => state.pageSize);
   const bookTitle = useStore((state) => state.bookTitle);
   const includeSolutions = useStore((state) => state.includeSolutions);
+  const solutionsPerPage = useStore((state) => state.solutionsPerPage);
 
   const [showSolutions, setShowSolutions] = useState(true);
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 500 });
@@ -145,7 +149,8 @@ export function Preview() {
         pages: [activePage],
         pageSize,
         includeSolutions: false,
-        isSinglePage: true
+        isSinglePage: true,
+        solutionsPerPage
       });
       
       const response = await fetch(blobUrl);
@@ -161,6 +166,37 @@ export function Preview() {
       alert("Failed to export PDF page. Check console for details.");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handlePreviewSolutions = async () => {
+    if (pages.length === 0) return;
+    try {
+      setIsPreviewing(true);
+      const blobUrl = await generatePdfViaWorker({
+        pages,
+        pageSize,
+        includeSolutions: true, // Preview the whole book including solutions
+        isSinglePage: false,
+        solutionsPerPage
+      });
+      
+      const response = await fetch(blobUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      const tmpDir = await tempDir();
+      const tmpPath = await join(tmpDir, 'WordSearchMaker_Preview.pdf');
+      
+      await writeFile(tmpPath, uint8Array);
+      URL.revokeObjectURL(blobUrl);
+      
+      await openPath(tmpPath);
+    } catch (e) {
+      console.error("Preview solutions failed", e);
+      alert("Failed to generate solutions preview.");
+    } finally {
+      setIsPreviewing(false);
     }
   };
 
@@ -183,7 +219,8 @@ export function Preview() {
         pages,
         pageSize,
         includeSolutions,
-        isSinglePage: false
+        isSinglePage: false,
+        solutionsPerPage
       });
       
       const response = await fetch(blobUrl);
@@ -612,6 +649,7 @@ export function Preview() {
               </svg>
             )}
           </div>
+        </div>
       );
     }
 
@@ -820,6 +858,17 @@ export function Preview() {
             {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} 
             {isExporting ? "Rendering..." : "Export Page"}
           </button>
+
+          {includeSolutions && (
+            <button
+              onClick={handlePreviewSolutions}
+              disabled={isPreviewing}
+              className="bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow-md shadow-indigo-100 transition-all flex items-center gap-2 active:scale-95 cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPreviewing ? <Loader2 size={16} className="animate-spin" /> : <Eye size={16} />}
+              Preview Solutions PDF
+            </button>
+          )}
 
           <button
             onClick={handleExportBookPDF}

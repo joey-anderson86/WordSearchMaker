@@ -16,6 +16,7 @@ export interface PuzzleSlice {
     setSelectedElementId: (id: string | null) => void;
     
     addPage: (page: PageState) => void;
+    insertPage: (index: number, page: PageState) => void;
     addPuzzle: (puzzle: PuzzlePayload) => void;
     
     updatePage: (id: string, updated: PageState) => void;
@@ -65,6 +66,17 @@ export const createPuzzleSlice: StateCreator<any, [], [], PuzzleSlice> = (set, g
             puzzles: nextPuzzles,
             selectedPageId: state.selectedPageId || page.id,
             selectedPuzzleId: state.selectedPuzzleId || page.id,
+        };
+    }),
+    insertPage: (index, page) => set((state: any) => {
+        const nextPages = [...state.pages];
+        nextPages.splice(index, 0, page);
+        const nextPuzzles = nextPages.map(p => p.metadata);
+        return {
+            pages: nextPages,
+            puzzles: nextPuzzles,
+            selectedPageId: page.id,
+            selectedPuzzleId: page.id,
         };
     }),
     addPuzzle: (puzzle) => {
