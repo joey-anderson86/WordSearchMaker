@@ -1,7 +1,7 @@
 pub mod models;
 pub mod word_search_engine;
 pub mod error;
-
+pub mod pdf_engine;
 use error::AppError;
 use models::{PuzzlePayload, BulkPuzzleRequest};
 use tauri::AppHandle;
@@ -28,7 +28,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![generate_puzzle, generate_bulk_puzzles])
+        .invoke_handler(tauri::generate_handler![
+            generate_puzzle, 
+            generate_bulk_puzzles,
+            pdf_engine::generate_pdf_from_canvas
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

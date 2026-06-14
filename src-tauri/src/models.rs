@@ -134,6 +134,47 @@ pub struct PuzzlePayload {
     pub solution_style: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, TS, Debug, Clone, PartialEq)]
+#[ts(export, export_to = "../../src/types/generated/ElementType.ts")]
+pub enum ElementType {
+    #[serde(rename = "TEXT")]
+    Text,
+    #[serde(rename = "IMAGE")]
+    Image,
+    #[serde(rename = "PUZZLE_GRID")]
+    PuzzleGrid,
+    #[serde(rename = "SHAPE")]
+    Shape,
+}
+
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/CanvasElement.ts")]
+pub struct CanvasElement {
+    pub id: String,
+    pub r#type: ElementType,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub rotation: f64,
+    pub is_locked: bool,
+    pub is_visible: bool,
+    #[ts(type = "any")]
+    pub content_data: serde_json::Value,
+    #[ts(type = "Record<string, any>")]
+    pub style: std::collections::HashMap<String, serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/CanvasPayload.ts")]
+pub struct CanvasPayload {
+    pub width_pt: f64,
+    pub height_pt: f64,
+    pub elements: Vec<CanvasElement>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,5 +191,8 @@ mod tests {
         CrosswordData::export().expect("failed to export CrosswordData");
         PuzzleSpecificData::export().expect("failed to export PuzzleSpecificData");
         PuzzlePayload::export().expect("failed to export PuzzlePayload");
+        ElementType::export().expect("failed to export ElementType");
+        CanvasElement::export().expect("failed to export CanvasElement");
+        CanvasPayload::export().expect("failed to export CanvasPayload");
     }
 }
