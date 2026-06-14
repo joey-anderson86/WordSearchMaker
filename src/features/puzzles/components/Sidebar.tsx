@@ -49,6 +49,7 @@ export function Sidebar() {
   const setDefaultMargins = useStore((state) => state.setDefaultMargins);
   const setSelectedPuzzleId = useStore((state) => state.setSelectedPuzzleId);
   const setViewMode = useStore((state) => state.setViewMode);
+  const viewMode = useStore((state) => state.viewMode);
   const addPuzzle = useStore((state) => state.addPuzzle);
   const updatePuzzle = useStore((state) => state.updatePuzzle);
   const deletePuzzle = useStore((state) => state.deletePuzzle);
@@ -374,8 +375,18 @@ export function Sidebar() {
       <div className="flex items-center justify-between p-3 border-b border-slate-800 flex-shrink-0">
         {!isCollapsed && (
           <div className="flex gap-1 bg-slate-800 p-0.5 rounded text-xs font-semibold">
-            <button className="bg-slate-600 text-white px-3 py-1 rounded shadow-sm cursor-default">Interior</button>
-            <button onClick={() => setViewMode('cover')} className="text-slate-400 hover:text-slate-200 px-3 py-1 rounded cursor-pointer">Cover</button>
+            <button 
+              onClick={() => setViewMode('interior')}
+              className={`px-3 py-1 rounded transition-colors ${viewMode === 'interior' || viewMode === undefined ? 'bg-slate-600 text-white shadow-sm cursor-default' : 'text-slate-400 hover:text-slate-200 cursor-pointer'}`}
+            >
+              Interior
+            </button>
+            <button 
+              onClick={() => setViewMode('cover')} 
+              className={`px-3 py-1 rounded transition-colors ${viewMode === 'cover' ? 'bg-slate-600 text-white shadow-sm cursor-default' : 'text-slate-400 hover:text-slate-200 cursor-pointer'}`}
+            >
+              Cover
+            </button>
           </div>
         )}
         <button 
