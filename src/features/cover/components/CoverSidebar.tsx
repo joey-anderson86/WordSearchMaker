@@ -22,11 +22,7 @@ export function CoverSidebar() {
         coverTitleSize, setCoverTitleSize,
         setCoverBgImage, setViewMode,
         pages, includeSolutions
-    } = useStore(state => ({
-        ...state,
-        pages: state.pages,
-        includeSolutions: state.includeSolutions
-    }));
+    } = useStore();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const totalPages = pages.length * 2 + (includeSolutions ? 10 : 0); // rough estimate of physical pages

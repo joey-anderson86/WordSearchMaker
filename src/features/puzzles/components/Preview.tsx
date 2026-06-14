@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useStore } from "../../../store";
 import { save } from "@tauri-apps/plugin-dialog";
-import { Download, AlertCircle, Eye, EyeOff, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { pdf } from "@react-pdf/renderer";
+import { Download, AlertCircle, Eye, EyeOff, ChevronLeft, ChevronRight, RefreshCw, Loader2 } from "lucide-react";
 import { writeFile } from "@tauri-apps/plugin-fs";
-import { PdfDocument } from "../../pdf/components/PdfDocument";
 import { getPageDimensions } from "../../../types/pageSizes";
 
 const fontStyleMap: Record<string, string> = {
@@ -57,6 +55,7 @@ export function Preview() {
 
   const [showSolutions, setShowSolutions] = useState(true);
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 500 });
@@ -108,6 +107,25 @@ export function Preview() {
     }
   };
 
+  const generatePdfViaWorker = (payload: any): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(new URL('../../../workers/pdf.worker', import.meta.url), { type: 'module' });
+      worker.onmessage = (e) => {
+        if (e.data.success) {
+          resolve(e.data.blobUrl);
+        } else {
+          reject(new Error(e.data.error));
+        }
+        worker.terminate();
+      };
+      worker.onerror = (err) => {
+        reject(err);
+        worker.terminate();
+      };
+      worker.postMessage(payload);
+    });
+  };
+
   const handleExportPagePDF = async () => {
     if (!activePage) return;
     try {
@@ -121,23 +139,28 @@ export function Preview() {
       
       if (!filePath) return;
       
-      const blob = await pdf(
-        <PdfDocument
-          pages={[activePage]}
-          pageSize={pageSize}
-          includeSolutions={false}
-          isSinglePage={true}
-        />
-      ).toBlob();
+      setIsExporting(true);
       
-      const arrayBuffer = await blob.arrayBuffer();
+      const blobUrl = await generatePdfViaWorker({
+        pages: [activePage],
+        pageSize,
+        includeSolutions: false,
+        isSinglePage: true
+      });
+      
+      const response = await fetch(blobUrl);
+      const arrayBuffer = await response.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
       await writeFile(filePath, uint8Array);
+      
+      URL.revokeObjectURL(blobUrl);
       
       alert(`Successfully saved page to ${filePath}`);
     } catch (e) {
       console.error("Export page failed", e);
       alert("Failed to export PDF page. Check console for details.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -154,23 +177,28 @@ export function Preview() {
       
       if (!filePath) return;
       
-      const blob = await pdf(
-        <PdfDocument
-          pages={pages}
-          pageSize={pageSize}
-          includeSolutions={includeSolutions}
-          isSinglePage={false}
-        />
-      ).toBlob();
+      setIsExporting(true);
       
-      const arrayBuffer = await blob.arrayBuffer();
+      const blobUrl = await generatePdfViaWorker({
+        pages,
+        pageSize,
+        includeSolutions,
+        isSinglePage: false
+      });
+      
+      const response = await fetch(blobUrl);
+      const arrayBuffer = await response.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
       await writeFile(filePath, uint8Array);
+      
+      URL.revokeObjectURL(blobUrl);
       
       alert(`Successfully saved book to ${filePath}`);
     } catch (e) {
       console.error("Export book failed", e);
       alert("Failed to export book PDF. Check console for details.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -787,16 +815,20 @@ export function Preview() {
 
           <button
             onClick={handleExportPagePDF}
-            className="bg-white border border-slate-250 text-slate-700 hover:bg-slate-50 font-semibold py-2 px-4 rounded-lg shadow-md shadow-slate-100 transition-all flex items-center gap-2 active:scale-95 cursor-pointer text-xs"
+            disabled={isExporting}
+            className="bg-white border border-slate-250 text-slate-700 hover:bg-slate-50 font-semibold py-2 px-4 rounded-lg shadow-md shadow-slate-100 transition-all flex items-center gap-2 active:scale-95 cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download size={16} /> Export Page
+            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} 
+            {isExporting ? "Rendering..." : "Export Page"}
           </button>
 
           <button
             onClick={handleExportBookPDF}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 rounded-lg shadow-md shadow-indigo-200 transition-all flex items-center gap-2 active:scale-95 cursor-pointer text-xs"
+            disabled={isExporting}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 rounded-lg shadow-md shadow-indigo-200 transition-all flex items-center gap-2 active:scale-95 cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download size={16} /> Export Book
+            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} 
+            {isExporting ? "Rendering PDF..." : "Export Book"}
           </button>
         </div>
       </div>
