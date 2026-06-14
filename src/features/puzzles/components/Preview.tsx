@@ -55,6 +55,9 @@ export function Preview() {
   const bookTitle = useStore((state) => state.bookTitle);
   const includeSolutions = useStore((state) => state.includeSolutions);
   const solutionsPerPage = useStore((state) => state.solutionsPerPage);
+  const globalTheme = useStore((state) => state.globalTheme);
+  const pageBorderUrl = useStore((state) => state.pageBorderUrl);
+  const isLargePrint = useStore((state) => state.isLargePrint);
 
   const [showSolutions, setShowSolutions] = useState(true);
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
@@ -150,7 +153,10 @@ export function Preview() {
         pageSize,
         includeSolutions: false,
         isSinglePage: true,
-        solutionsPerPage
+        solutionsPerPage,
+        globalTheme,
+        pageBorderUrl,
+        isLargePrint
       });
       
       const response = await fetch(blobUrl);
@@ -178,7 +184,10 @@ export function Preview() {
         pageSize,
         includeSolutions: true, // Preview the whole book including solutions
         isSinglePage: false,
-        solutionsPerPage
+        solutionsPerPage,
+        globalTheme,
+        pageBorderUrl,
+        isLargePrint
       });
       
       const response = await fetch(blobUrl);
@@ -220,7 +229,10 @@ export function Preview() {
         pageSize,
         includeSolutions,
         isSinglePage: false,
-        solutionsPerPage
+        solutionsPerPage,
+        globalTheme,
+        pageBorderUrl,
+        isLargePrint
       });
       
       const response = await fetch(blobUrl);

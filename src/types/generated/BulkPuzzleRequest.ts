@@ -5,4 +5,5 @@ export type BulkPuzzleRequest = {
   width: number;
   height: number;
   words: Array<string>;
+  isLargePrint?: boolean;
 };

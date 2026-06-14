@@ -8,7 +8,7 @@ use tauri::AppHandle;
 
 #[tauri::command]
 fn generate_puzzle(width: usize, height: usize, words: Vec<String>) -> Result<PuzzlePayload, AppError> {
-    Ok(word_search_engine::generate_word_search(width, height, words, None, None))
+    Ok(word_search_engine::generate_word_search(width, height, words, None, None, None))
 }
 
 #[tauri::command]

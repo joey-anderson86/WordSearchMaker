@@ -4,4 +4,5 @@ import type { PageState } from "./PageState";
 export type BookState = {
   pages: Array<PageState>;
   selectedPageId: string | null;
+  pageBorderUrl?: string;
 };

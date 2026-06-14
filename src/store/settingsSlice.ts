@@ -1,5 +1,14 @@
 import { StateCreator } from 'zustand';
 import { scalePageLayout } from '../utils/layoutHelper';
+import { FontProperties } from '../types/generated/FontProperties';
+
+export interface GlobalTheme {
+    fontProperties: FontProperties;
+    lineThickness: number;
+    textCasing: 'uppercase' | 'lowercase';
+    primaryColor: string;
+    secondaryColor: string;
+}
 
 export interface SettingsSlice {
     viewMode: "interior" | "cover";
@@ -9,6 +18,9 @@ export interface SettingsSlice {
     solutionsPerPage: 1 | 2 | 4 | 6 | 9;
     defaultMargins: { top: number; bottom: number; inside: number; outside: number };
     defaultGridSnapSize: number;
+    globalTheme: GlobalTheme | null;
+    pageBorderUrl: string | null;
+    isLargePrint: boolean;
     setViewMode: (mode: "interior" | "cover") => void;
     setBookTitle: (bookTitle: string) => void;
     setPageSize: (pageSize: string) => void;
@@ -16,6 +28,9 @@ export interface SettingsSlice {
     setSolutionsPerPage: (solutionsPerPage: 1 | 2 | 4 | 6 | 9) => void;
     setDefaultMargins: (margins: { top: number; bottom: number; inside: number; outside: number }) => void;
     setDefaultGridSnapSize: (size: number) => void;
+    setGlobalTheme: (theme: GlobalTheme | null) => void;
+    setPageBorderUrl: (url: string | null) => void;
+    setIsLargePrint: (isLargePrint: boolean) => void;
 }
 
 export const createSettingsSlice: StateCreator<any, [], [], SettingsSlice> = (set) => ({
@@ -26,6 +41,9 @@ export const createSettingsSlice: StateCreator<any, [], [], SettingsSlice> = (se
     solutionsPerPage: 1,
     defaultMargins: { top: 40, bottom: 50, inside: 50, outside: 40 },
     defaultGridSnapSize: 10,
+    globalTheme: null,
+    pageBorderUrl: null,
+    isLargePrint: false,
     setViewMode: (viewMode) => set({ viewMode }),
     setBookTitle: (bookTitle) => set({ bookTitle }),
     setPageSize: (pageSize) => set((state: any) => {
@@ -46,4 +64,7 @@ export const createSettingsSlice: StateCreator<any, [], [], SettingsSlice> = (se
     setSolutionsPerPage: (solutionsPerPage) => set({ solutionsPerPage }),
     setDefaultMargins: (defaultMargins) => set({ defaultMargins }),
     setDefaultGridSnapSize: (defaultGridSnapSize) => set({ defaultGridSnapSize }),
+    setGlobalTheme: (globalTheme) => set({ globalTheme }),
+    setPageBorderUrl: (pageBorderUrl) => set({ pageBorderUrl }),
+    setIsLargePrint: (isLargePrint) => set({ isLargePrint }),
 });

@@ -1,6 +1,6 @@
 import { Document, Page, View, Text, StyleSheet, Svg, Rect, Image } from "@react-pdf/renderer";
 import type { PageState } from "../../../types/generated/PageState";
-import { chunkArray } from "../../../utils/layoutHelper";
+import { chunkArray, enforceLargePrint } from "../../../utils/layoutHelper";
 import { registerFonts } from "../../../utils/fonts";
 
 registerFonts();
@@ -44,6 +44,9 @@ interface PdfDocumentProps {
   includeSolutions: boolean;
   isSinglePage?: boolean;
   solutionsPerPage?: number;
+  globalTheme?: any;
+  pageBorderUrl?: string | null;
+  isLargePrint?: boolean;
 }
 
 const styles = StyleSheet.create({
@@ -169,7 +172,10 @@ const renderPdfPage = (
   pageSize: string,
   pageIndex: number,
   pageDims: { width: number; height: number },
-  totalPages: number
+  totalPages: number,
+  globalTheme?: any,
+  pageBorderUrl?: string | null,
+  isLargePrint?: boolean
 ) => {
   const activePuzzle = page.metadata;
   const isSudoku = activePuzzle.specificData.type === "Sudoku";
@@ -200,6 +206,21 @@ const renderPdfPage = (
       size={pageSize.toUpperCase() as any}
       style={[styles.page, { backgroundColor: page.backgroundColor || '#ffffff' }]}
     >
+      {/* Page Border Overlay */}
+      {pageBorderUrl && (
+        <Image
+          src={pageBorderUrl}
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: pageDims.width,
+            height: pageDims.height,
+            zIndex: -1,
+          }}
+        />
+      )}
+
       {/* 1. Render Art Layers */}
       {page.artLayers.map((layer) => (
         <Image
@@ -220,10 +241,18 @@ const renderPdfPage = (
       {/* 2. Render Grid Elements */}
       {page.gridLayout.map((el) => {
         if (el.type === "title") {
-          const textFontFamily = fontStyleMap[el.content.fontFamily] || 'Helvetica-Bold';
-          const size = el.content.fontSize || 28;
+          const fontFamily = globalTheme?.fontProperties?.titleFont || el.content.fontFamily;
+          const textFontFamily = fontStyleMap[fontFamily] || 'Helvetica-Bold';
+          let { fontSize: size } = enforceLargePrint(isLargePrint ?? false, el.content.fontSize || 28);
           const align = el.content.align || 'left';
-          const color = el.content.color || '#0f172a';
+          const color = globalTheme?.primaryColor || el.content.color || '#0f172a';
+
+          let titleText = drawSolutions 
+            ? `Solution: ${formatTitle(el.content.text, el.content.themeAccents)}` 
+            : formatTitle(el.content.text, el.content.themeAccents);
+            
+          if (globalTheme?.textCasing === 'uppercase') titleText = titleText.toUpperCase();
+          if (globalTheme?.textCasing === 'lowercase') titleText = titleText.toLowerCase();
 
           return (
             <View
@@ -241,10 +270,7 @@ const renderPdfPage = (
               }}
             >
               <Text style={{ fontFamily: textFontFamily, color: color, fontSize: size, textAlign: align as any, letterSpacing: el.content.letterSpacing ?? 0 }}>
-                {drawSolutions 
-                  ? `Solution: ${formatTitle(el.content.text, el.content.themeAccents)}` 
-                  : formatTitle(el.content.text, el.content.themeAccents)
-                }
+                {titleText}
               </Text>
               {(isSudoku || isCrossword) && (
                 <Text style={[styles.subtitleText, { textAlign: align as any }]}>
@@ -256,7 +282,7 @@ const renderPdfPage = (
         }
 
         if (el.type === "grid") {
-          const gridFont = el.content.gridFont || activePuzzle.gridFont || "Modern Sans";
+          const gridFont = globalTheme?.fontProperties?.gridFont || el.content.gridFont || activePuzzle.gridFont || "Modern Sans";
           const cellBordersSetting = el.content.cellBorders ?? false;
           const ideThemeSetting = el.content.ideTheme ?? false;
           const letterTrackingSetting = el.content.letterTracking ?? 0;
@@ -283,14 +309,15 @@ const renderPdfPage = (
           const maxCellSizeW = (availableW - (cols - 1) * gapOffset) / cols;
           const maxCellSizeH = (availableH - (rows - 1) * gapOffset) / rows;
           
-          const cellSize = Math.max(10, Math.min(maxCellSizeW, maxCellSizeH));
+          let rawCellSize = Math.max(10, Math.min(maxCellSizeW, maxCellSizeH));
+          const { cellSize } = enforceLargePrint(isLargePrint ?? false, undefined, rawCellSize);
           const step = cellSize + gapOffset;
           
           const gridWidth = cols * step - gapOffset;
           const gridHeight = rows * step - gapOffset;
 
-          const borderVal = cellBordersSetting ? 0.5 : 0;
-          const borderCol = ideThemeSetting ? '#334155' : '#e2e8f0';
+          const borderVal = globalTheme ? globalTheme.lineThickness : (cellBordersSetting ? 0.5 : 0);
+          const borderCol = globalTheme?.primaryColor || (ideThemeSetting ? '#334155' : '#e2e8f0');
 
           return (
             <View
@@ -502,9 +529,9 @@ const renderPdfPage = (
 
           const columns = el.content.columns || 3;
           const selectorStyle = el.content.selectorStyle || "Clean Text (No Bullets)";
-          const font = el.content.fontFamily || "Modern Sans";
-          const fontSize = el.content.fontSize || 10;
-          const color = el.content.color || "#475569";
+          const font = globalTheme?.fontProperties?.gridFont || el.content.fontFamily || "Modern Sans";
+          const { fontSize } = enforceLargePrint(isLargePrint ?? false, el.content.fontSize || 10);
+          const color = globalTheme?.secondaryColor || el.content.color || "#475569";
           const textFontFamily = fontStyleMap[font] || 'Helvetica';
 
           if (isWordSearch) {
@@ -548,11 +575,16 @@ const renderPdfPage = (
                 <View style={styles.wordBankGrid}>
                   {wordRows.map((row, rIdx) => (
                     <View key={rIdx} style={styles.wordBankRow}>
-                      {row.map((word, cIdx) => (
-                        <View key={cIdx} style={styles.wordBankCell}>
-                          <Text style={{ fontFamily: textFontFamily, color, fontSize }}>{prefix}{word}</Text>
-                        </View>
-                      ))}
+                      {row.map((word, cIdx) => {
+                        let finalWord = word;
+                        if (globalTheme?.textCasing === 'uppercase') finalWord = finalWord.toUpperCase();
+                        if (globalTheme?.textCasing === 'lowercase') finalWord = finalWord.toLowerCase();
+                        return (
+                          <View key={cIdx} style={styles.wordBankCell}>
+                            <Text style={{ fontFamily: textFontFamily, color, fontSize }}>{prefix}{finalWord}</Text>
+                          </View>
+                        );
+                      })}
                       {row.length < columns &&
                         Array.from({ length: columns - row.length }).map((_, padIdx) => (
                           <View key={`pad-${padIdx}`} style={styles.wordBankCell} />
@@ -567,11 +599,16 @@ const renderPdfPage = (
                     <View style={styles.wordBankGrid}>
                       {unplacedRows.map((row, rIdx) => (
                         <View key={rIdx} style={styles.wordBankRow}>
-                          {row.map((word, cIdx) => (
-                            <View key={cIdx} style={styles.wordBankCell}>
-                              <Text style={[styles.unplacedText, { fontFamily: textFontFamily, fontSize: fontSize - 0.5 }]}>{prefix}{word}</Text>
-                            </View>
-                          ))}
+                          {row.map((word, cIdx) => {
+                            let finalWord = word;
+                            if (globalTheme?.textCasing === 'uppercase') finalWord = finalWord.toUpperCase();
+                            if (globalTheme?.textCasing === 'lowercase') finalWord = finalWord.toLowerCase();
+                            return (
+                              <View key={cIdx} style={styles.wordBankCell}>
+                                <Text style={[styles.unplacedText, { fontFamily: textFontFamily, fontSize: fontSize - 0.5 }]}>{prefix}{finalWord}</Text>
+                              </View>
+                            );
+                          })}
                           {row.length < columns &&
                             Array.from({ length: columns - row.length }).map((_, padIdx) => (
                               <View key={`pad-${padIdx}`} style={styles.wordBankCell} />

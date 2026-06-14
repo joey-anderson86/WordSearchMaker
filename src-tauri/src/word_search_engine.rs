@@ -10,12 +10,21 @@ pub fn generate_word_search(
     words: Vec<String>,
     difficulty: Option<crate::models::Difficulty>,
     mask: Option<Vec<Vec<bool>>>,
+    is_large_print: Option<bool>,
 ) -> PuzzlePayload {
-    let mut grid: Vec<Vec<char>> = vec![vec![' '; width]; height];
+    let mut actual_width = width;
+    let mut actual_height = height;
+
+    if is_large_print.unwrap_or(false) {
+        if actual_width > 18 { actual_width = 18; }
+        if actual_height > 18 { actual_height = 18; }
+    }
+
+    let mut grid: Vec<Vec<char>> = vec![vec![' '; actual_width]; actual_height];
 
     if let Some(m) = &mask {
-        for y in 0..height {
-            for x in 0..width {
+        for y in 0..actual_height {
+            for x in 0..actual_width {
                 if y < m.len() && x < m[y].len() && !m[y][x] {
                     grid[y][x] = '#';
                 }
@@ -24,6 +33,10 @@ pub fn generate_word_search(
     }
 
     let mut sorted_words = words.clone();
+    // Filter words that are too long to fit in the grid
+    let max_len = std::cmp::max(actual_width, actual_height);
+    sorted_words.retain(|w| w.chars().count() <= max_len);
+
     // Sort input words by length (longest first)
     sorted_words.sort_by(|a, b| b.len().cmp(&a.len()));
 
@@ -69,8 +82,8 @@ pub fn generate_word_search(
         let mut placed = false;
 
         let mut all_coordinates = Vec::new();
-        for y in 0..height {
-            for x in 0..width {
+        for y in 0..actual_height {
+            for x in 0..actual_width {
                 all_coordinates.push((x as i32, y as i32));
             }
         }
@@ -84,7 +97,7 @@ pub fn generate_word_search(
                 let end_x = start_x + (word_len - 1) * dx;
                 let end_y = start_y + (word_len - 1) * dy;
 
-                if end_x >= 0 && end_x < width as i32 && end_y >= 0 && end_y < height as i32 {
+                if end_x >= 0 && end_x < actual_width as i32 && end_y >= 0 && end_y < actual_height as i32 {
                     let mut can_place = true;
                     for i in 0..word_len {
                         let cx = (start_x + i * dx) as usize;
@@ -126,8 +139,8 @@ pub fn generate_word_search(
     }
 
     // Fill remaining empty grid spaces with random uppercase alphabet letters
-    for y in 0..height {
-        for x in 0..width {
+    for y in 0..actual_height {
+        for x in 0..actual_width {
             if grid[y][x] == ' ' {
                 grid[y][x] = rng.gen_range(b'A'..=b'Z') as char;
             }
@@ -176,7 +189,7 @@ pub fn generate_bulk_word_searches(
     requests
         .into_par_iter()
         .map(|req| {
-            let mut payload = generate_word_search(req.width, req.height, req.words, req.difficulty.clone(), req.mask.clone());
+            let mut payload = generate_word_search(req.width, req.height, req.words, req.difficulty.clone(), req.mask.clone(), req.is_large_print);
             payload.title = req.title;
 
             let current = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;

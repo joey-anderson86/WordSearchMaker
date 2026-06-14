@@ -5,7 +5,7 @@
 
 self.onmessage = async (e: MessageEvent) => {
   try {
-    const { pages, pageSize, includeSolutions, isSinglePage, solutionsPerPage } = e.data;
+    const { pages, pageSize, includeSolutions, isSinglePage, solutionsPerPage, globalTheme, pageBorderUrl, isLargePrint } = e.data;
 
     // Dynamically import libraries to ensure self.window is established
     const { pdf } = await import('@react-pdf/renderer');
@@ -18,6 +18,9 @@ self.onmessage = async (e: MessageEvent) => {
         includeSolutions={includeSolutions}
         isSinglePage={isSinglePage}
         solutionsPerPage={solutionsPerPage}
+        globalTheme={globalTheme}
+        pageBorderUrl={pageBorderUrl}
+        isLargePrint={isLargePrint}
       />
     ).toBlob();
 

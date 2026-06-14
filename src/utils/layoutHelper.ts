@@ -15,6 +15,30 @@ export function chunkArray<T>(array: T[], size: number): T[][] {
 }
 
 /**
+ * Enforce Large Print KDP requirements.
+ * Large Print requires a minimum font size of 16pt.
+ */
+export function enforceLargePrint(
+  isLargePrint: boolean,
+  elementFontSize?: number,
+  elementCellSize?: number
+): { fontSize: number; cellSize: number } {
+  const minFontSize = 16;
+  const fontRatio = 0.6;
+  const minCellSize = Math.ceil(minFontSize / fontRatio); // 27
+
+  let finalFontSize = elementFontSize || 10;
+  let finalCellSize = elementCellSize || 10;
+
+  if (isLargePrint) {
+    finalFontSize = Math.max(finalFontSize, minFontSize);
+    finalCellSize = Math.max(finalCellSize, minCellSize);
+  }
+
+  return { fontSize: finalFontSize, cellSize: finalCellSize };
+}
+
+/**
  * Creates a text block page for front or back matter.
  */
 export function createTextBlockPage(title: string, textContent: string, _pageSize: string): PageState {

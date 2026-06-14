@@ -35,6 +35,9 @@ pub struct BulkPuzzleRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub mask: Option<Vec<Vec<bool>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub is_large_print: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, TS, Debug, Clone)]
